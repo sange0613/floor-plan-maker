@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ChevronLeft, ChevronRight, Crop, Download, Eye, EyeOff, FileText, FolderOpen, History as HistoryIcon,
   LocateFixed, MousePointer2, PaintBucket, Redo2, RotateCcw, RotateCw, Save, ScanLine, Trash2,
-  Undo2, Upload, ZoomIn, ZoomOut, Layers, Settings2, X, SlidersHorizontal,
+  Undo2, Upload, ZoomIn, ZoomOut, Layers, Settings2, X, SlidersHorizontal, MoreHorizontal,
 } from 'lucide-react'
 import EditorCanvas from './components/EditorCanvas'
 import AppearanceSettings from './components/AppearanceSettings'
 import FillColorPresets from './components/FillColorPresets'
 import FillShadowSettings, { DEFAULT_FILL_SHADOW } from './components/FillShadowSettings'
-import IconButton from './components/IconButton'
+import WorkbenchPopover from './components/WorkbenchPopover'
 import InspectorSection from './components/InspectorSection'
 import { normalizeMaterial, quickFillMaterial } from './lib/materials'
 import MaterialProperties from './components/MaterialProperties'
@@ -62,12 +62,12 @@ export default function App() {
   const [activeMaterial, setActiveMaterial] = useState(() => normalizeMaterial({ color: '#888888' }))
   const [autoShadow, setAutoShadow] = useState(true)
   const [shadowScope, setShadowScope] = useState('color')
-  const [shadowSettingsOpen, setShadowSettingsOpen] = useState(false)
+  const [openPopover, setOpenPopover] = useState(null)
   const [selection, setSelection] = useState(null)
   const [scope, setScope] = useState('region')
   const [inspectorTab, setInspectorTab] = useState('properties')
   const [settingsPanel, setSettingsPanel] = useState(null)
-  const [mobileInspector, setMobileInspector] = useState(false)
+  const [inspectorOpen, setInspectorOpen] = useState(false)
   const [lineColor, setLineColor] = useState('#1A1A1A')
   const [lineOpacity, setLineOpacity] = useState(100)
   const [linePosition, setLinePosition] = useState('top')
@@ -97,16 +97,24 @@ export default function App() {
   const editorRef = useRef(null)
   const workspaceRef = useRef(null)
 
+  // Closing a popover unmounts its focused inputs without necessarily firing
+  // blur. Commit the current edit before the next interaction can start.
+  useEffect(() => {
+    if (openPopover !== 'shadow') return undefined
+    return () => editorRef.current?.endMaterialInteraction()
+  }, [openPopover])
+
   const chooseMaterial = (input) => {
     const value = normalizeMaterial(input)
     setActiveMaterial(value)
     setTool('bucket')
     setCropRequest(null)
+    setOpenPopover(null)
     setSelection(null)
     editorRef.current?.clearSelection()
     setInspectorTab('properties')
   }
-  const chooseFillColor = color => chooseMaterial({ color })
+  const chooseFillColor = color => chooseMaterial({ ...activeMaterial, color, shadow: null })
   const selectedMaterial = fillLayers.find(layer => layer.id === selection?.materialId)
   const shownMaterial = selectedMaterial || activeMaterial
   const editSelectedMaterial = patch => {
@@ -140,11 +148,11 @@ export default function App() {
     setScope('material')
     setInspectorTab('properties')
     setTool('select')
-    setMobileInspector(true)
+    setInspectorOpen(true)
   }
   useEffect(() => {
     const close = event => {
-      if (event.key === 'Escape') { setSettingsPanel(null); setMobileInspector(false) }
+      if (event.key === 'Escape' && !event.defaultPrevented) { setSettingsPanel(null); setInspectorOpen(false); setOpenPopover(null) }
     }
     window.addEventListener('keydown', close)
     return () => window.removeEventListener('keydown', close)
@@ -323,12 +331,6 @@ export default function App() {
   const undo = () => setMessage(editorRef.current?.undo() ? '已撤销上一次修改' : '暂无可撤销操作')
   const redo = () => setMessage(editorRef.current?.redo() ? '已重做下一次修改' : '暂无可重做操作')
 
-  const tools = [
-    { id: 'select', label: '选择', icon: MousePointer2 },
-    { id: 'bucket', label: '油漆桶', icon: PaintBucket },
-    { id: 'crop', label: '裁剪', icon: Crop },
-  ]
-
   const cropRatios = [
     { id: 'free', label: '自由', ratio: null },
     { id: 'current', label: '原比例', ratio: canvasSize.height ? canvasSize.width / canvasSize.height : null },
@@ -395,29 +397,43 @@ export default function App() {
           <div className="brand" aria-label="平面图制作"><span>平</span><span>面图制作</span></div>
         <div className="document-title"><FileText size={18} strokeWidth={1.7} /><span>{documentName}</span></div>
         <div className="top-actions">
-          <button className="button secondary" type="button" aria-label="画面与画布设置" onClick={() => setSettingsPanel('settings')}><Settings2 size={17} /><span>设置</span></button>
-          <button className="button secondary project-button" aria-label="打开项目" type="button" onClick={() => projectInputRef.current?.click()}><FolderOpen size={17} />打开项目</button>
-          <button className="button secondary project-button" aria-label="保存项目" type="button" onClick={saveProject}><Save size={17} />保存项目</button>
           <button className="button secondary" aria-label="导入线稿" type="button" onClick={() => lineInputRef.current?.click()}><Upload size={17} />导入线稿</button>
+          <button className="button secondary" aria-label="保存项目" type="button" onClick={saveProject}><Save size={17} /><span>保存</span></button>
           <button className="button primary" aria-label="导出作品" type="button" onClick={exportArtwork}><Download size={17} />导出作品</button>
+          <WorkbenchPopover label="更多操作" open={openPopover === 'more'} onToggle={() => setOpenPopover(value => value === 'more' ? null : 'more')} onClose={() => setOpenPopover(null)} triggerClass="button secondary" panelClass="command-panel header-command-panel" trigger={<><MoreHorizontal size={18} /><span>更多</span></>}>
+            <button type="button" aria-label="打开项目" onClick={() => { setOpenPopover(null); projectInputRef.current?.click() }}><FolderOpen size={16} />打开项目</button>
+            <button type="button" aria-label="画面与画布设置" onClick={() => { setOpenPopover(null); setSettingsPanel('settings') }}><Settings2 size={16} />画面与画布设置</button>
+            <button type="button" onClick={() => { setOpenPopover(null); setSettingsPanel('history') }}><HistoryIcon size={16} />历史记录</button>
+          </WorkbenchPopover>
         </div>
         <input ref={lineInputRef} hidden type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={importLineArt} />
         <input ref={projectInputRef} hidden type="file" accept=".weicolor,application/json" onChange={openProject} />
       </header>
 
-      <div className="editor-grid">
+      <div className={`editor-grid workbench-grid ${inspectorOpen ? 'inspector-open' : ''}`}>
         <aside className="left-panel">
-          <nav className="tool-rail" aria-label="绘图工具">
-            {tools.map((item) => <IconButton key={item.id} {...item} active={tool === item.id} onClick={() => { setTool(item.id); if (item.id === 'crop') setSettingsPanel('settings') }} />)}
-            <FillColorPresets color={activeMaterial.color} onChange={chooseFillColor} />
-            <button className={`tool-button hatch-shortcut ${activeMaterial.type === 'hatch' ? 'active' : ''}`} type="button" aria-label="45°剖面线" aria-pressed={activeMaterial.type === 'hatch'} onClick={() => chooseMaterial({ ...activeMaterial, type: activeMaterial.type === 'hatch' ? 'solid' : 'hatch', name: activeMaterial.type === 'hatch' ? '纯色' : '45°剖面线', angle: 0, transform: [1, 0, 0, 1, 0, 0], inkColor: '#333333' })}><span className="hatch-symbol" /><span>剖面线</span></button>
+          <nav className="tool-rail workbench-rail" aria-label="绘图工具">
+            <div className="fill-mode-buttons" role="group" aria-label="填充方式">
+              <button className={`tool-button ${tool === 'bucket' && activeMaterial.type === 'solid' ? 'active' : ''}`} type="button" aria-label="纯色填充" aria-pressed={tool === 'bucket' && activeMaterial.type === 'solid'} onClick={() => chooseMaterial({ ...activeMaterial, type: 'solid', name: '纯色' })}><PaintBucket size={21} strokeWidth={1.7} /><span>纯色</span></button>
+              <button className={`tool-button hatch-shortcut ${tool === 'bucket' && activeMaterial.type === 'hatch' ? 'active' : ''}`} type="button" aria-label="45°剖面线" aria-pressed={tool === 'bucket' && activeMaterial.type === 'hatch'} onClick={() => chooseMaterial({ ...activeMaterial, type: 'hatch', name: '45°剖面线', angle: 0, transform: [1, 0, 0, 1, 0, 0], inkColor: '#333333' })}><span className="hatch-symbol" /><span>剖面线</span></button>
+            </div>
+            <FillColorPresets color={activeMaterial.color} onChange={chooseFillColor} open={openPopover === 'palette'} onOpenChange={open => setOpenPopover(open ? 'palette' : null)} />
             <div className="quick-shadow-controls">
               <label title="新填色自动使用长投影"><input type="checkbox" aria-label="填色自动加阴影" checked={autoShadow} onChange={event => setAutoShadow(event.target.checked)} /><span>自动阴影</span></label>
-              <button type="button" aria-label="同色阴影" title={`切换 ${quickColor} 所有区域的阴影`} aria-pressed={colorShadowOn} onClick={toggleColorShadow}><span>{colorShadowOn ? '●' : '○'}</span> 同色阴影</button>
-              <button type="button" aria-label="全部添加阴影" disabled={busy || !fillLayers.length} onClick={() => editorRef.current?.setColorShadows(null, { ...DEFAULT_FILL_SHADOW })}>全部加阴影</button>
-              <button type="button" aria-label="同色阴影设置" onClick={() => { setShadowSettingsOpen(value => !value); setInspectorTab('properties'); setMobileInspector(true) }}>阴影设置</button>
+              <WorkbenchPopover label="阴影选项" open={openPopover === 'shadow'} onToggle={() => setOpenPopover(value => value === 'shadow' ? null : 'shadow')} onClose={() => setOpenPopover(null)} triggerClass="shadow-options-trigger" panelClass="workbench-shadow" trigger={<><SlidersHorizontal size={15} /><span>选项</span></>}>
+                <div className="shadow-target"><span className="layer-swatch" style={{ background: quickColor }} /><strong>{quickColor}</strong><small>{sameColorLayers.length ? '已填区域' : '下一次填充'}</small></div>
+                <div className="shadow-quick-actions">
+                  <button type="button" aria-label="同色阴影" aria-pressed={colorShadowOn} onClick={toggleColorShadow}>{colorShadowOn ? <Eye size={15} /> : <EyeOff size={15} />}同色阴影{colorShadowOn ? '开' : '关'}</button>
+                  <button type="button" aria-label="全部添加阴影" disabled={busy || !fillLayers.length} onClick={() => editorRef.current?.setColorShadows(null, { ...DEFAULT_FILL_SHADOW })}>全部加阴影</button>
+                </div>
+                <MaterialInteraction onStart={mode => editorRef.current?.beginMaterialInteraction(mode)} onEnd={() => editorRef.current?.endMaterialInteraction()}>
+                  <label className="quick-shadow-scope">阴影范围<select aria-label="阴影调整范围" value={effectiveShadowScope} onChange={event => setShadowScope(event.target.value)}>
+                    <option value="color">所有同色区域</option><option value="region" disabled={!selectedMaterial}>当前区域 / 材质</option>
+                  </select></label>
+                  <FillShadowSettings layers={[selectedMaterial || { ...activeMaterial, id: 'pending' }]} shadows={{ [String(selectedMaterial?.id || 'pending')]: panelShadow }} onAdd={() => editShadow({ ...DEFAULT_FILL_SHADOW })} onChange={(_, shadow) => editShadow(shadow)} onRemove={() => editShadow(null)} />
+                </MaterialInteraction>
+              </WorkbenchPopover>
             </div>
-            <button className="tool-button mobile-properties-trigger" type="button" aria-label="打开属性面板" onClick={() => setMobileInspector(true)}><SlidersHorizontal size={22} /><span>属性</span></button>
           </nav>
         </aside>
 
@@ -429,10 +445,16 @@ export default function App() {
               <button type="button" onClick={() => setSettingsPanel('history')} aria-label="历史记录"><HistoryIcon size={16} /></button>
             </div>
             <div className="canvas-view-controls">
-              <button className="canvas-fit-control canvas-rotate-control" type="button" disabled={busy || !source} onClick={() => rotateCanvas(false)} aria-label="向左旋转90度" title="向左旋转 90°"><RotateCcw size={16} /></button>
-              <button className="canvas-fit-control canvas-rotate-control" type="button" disabled={busy || !source} onClick={() => rotateCanvas(true)} aria-label="向右旋转90度" title="向右旋转 90°"><RotateCw size={16} /></button>
-              <button className="canvas-fit-control" type="button" onClick={fitCanvas} aria-label="完整显示画布"><ScanLine size={16} /><span>完整显示</span></button>
-              <button className="canvas-center-control" type="button" onClick={centerCanvas} aria-label="一键居中并放大到200%"><LocateFixed size={16} /><span>一键居中 · 200%</span></button>
+              <button className="canvas-center-control" type="button" onClick={centerCanvas} aria-label="一键居中并放大到200%" title="居中并放大到 200%"><LocateFixed size={16} /><span>居中</span></button>
+              <WorkbenchPopover label="画布工具" open={openPopover === 'canvas'} onToggle={() => setOpenPopover(value => value === 'canvas' ? null : 'canvas')} onClose={() => setOpenPopover(null)} triggerClass="canvas-fit-control" panelClass="command-panel canvas-command-panel" trigger={<><Settings2 size={16} /><span>画布工具</span></>}>
+                <button type="button" onClick={() => { fitCanvas(); setOpenPopover(null) }} aria-label="完整显示画布"><ScanLine size={16} />完整显示</button>
+                <button type="button" disabled={busy || !source} onClick={() => { rotateCanvas(false); setOpenPopover(null) }} aria-label="向左旋转90度"><RotateCcw size={16} />向左旋转 90°</button>
+                <button type="button" disabled={busy || !source} onClick={() => { rotateCanvas(true); setOpenPopover(null) }} aria-label="向右旋转90度"><RotateCw size={16} />向右旋转 90°</button>
+                <button type="button" aria-label="自由裁剪" disabled={busy || !source} onClick={() => { startCrop('free', null); setOpenPopover(null) }}><Crop size={16} />自由裁剪</button>
+                <button type="button" aria-label="画布比例" onClick={() => { setSettingsPanel('settings'); setOpenPopover(null) }}><Settings2 size={16} />画布比例与设置</button>
+                <button type="button" aria-label="选择区域" aria-pressed={tool === 'select'} onClick={() => { setTool('select'); setCropRequest(null); setOpenPopover(null) }}><MousePointer2 size={16} />选择区域</button>
+              </WorkbenchPopover>
+              <button className={`canvas-fit-control ${inspectorOpen ? 'active' : ''}`} type="button" aria-label="属性与图层" title="属性与图层" aria-expanded={inspectorOpen} aria-controls="material-inspector" onClick={() => { setOpenPopover(null); setInspectorOpen(value => !value) }}><Layers size={16} /><span>属性 / 图层</span></button>
             </div>
           </div>
           <div className="workspace" ref={workspaceRef}>
@@ -473,11 +495,11 @@ export default function App() {
         </section>
 
 
-        <aside className={`inspector material-inspector ${mobileInspector ? 'mobile-open' : ''}`}>
+        <aside id="material-inspector" className={`inspector material-inspector ${inspectorOpen ? 'workbench-open' : ''}`} aria-label="属性与图层面板">
           <div className="inspector-tabs" role="tablist" aria-label="右侧面板">
             <button type="button" role="tab" aria-selected={inspectorTab === 'properties'} onClick={() => setInspectorTab('properties')}>属性</button>
             <button type="button" role="tab" aria-label="图层" aria-selected={inspectorTab === 'layers'} onClick={() => setInspectorTab('layers')}>图层 <small>{fillLayers.length}</small></button>
-            <button className="mobile-panel-close" type="button" aria-label="关闭属性面板" onClick={() => setMobileInspector(false)}><X size={16} /></button>
+            <button className="workbench-panel-close" type="button" aria-label="收起属性面板" onClick={() => setInspectorOpen(false)}><X size={16} /></button>
           </div>
           <div className="inspector-body">
           <MaterialInteraction onStart={mode => editorRef.current?.beginMaterialInteraction(mode)} onEnd={() => editorRef.current?.endMaterialInteraction()}>
@@ -486,23 +508,13 @@ export default function App() {
               onRemoveTexture={() => editSelectedMaterial({ type: 'solid', name: '纯色' })}
               onUse={() => chooseMaterial({ ...shownMaterial, visible: true, opacity: 100 })}
               onDelete={() => editorRef.current?.deleteMaterial(selectedMaterial.id, { scope: selection?.seed == null ? 'material' : scope, seed: selection?.seed })} />
-            {shadowSettingsOpen ? <InspectorSection title="阴影设置">
-              <label className="quick-shadow-scope">调整范围<select aria-label="阴影调整范围" value={effectiveShadowScope} onChange={event => setShadowScope(event.target.value)}>
-                <option value="color">所有同色区域（{quickColor}）</option>
-                <option value="region" disabled={!selectedMaterial}>当前区域 / 材质</option>
-              </select></label>
-              <FillShadowSettings layers={[selectedMaterial || { ...activeMaterial, id: 'pending' }]} shadows={{ [String(selectedMaterial?.id || 'pending')]: panelShadow }}
-                onAdd={() => editShadow({ ...DEFAULT_FILL_SHADOW })}
-                onChange={(_, shadow) => editShadow(shadow)}
-                onRemove={() => editShadow(null)} />
-            </InspectorSection> : null}
           </> : <MaterialLayers layers={fillLayers} selectedId={selection?.materialId} onSelect={selectLayer}
               onChange={(id, patch) => editorRef.current?.updateMaterial(id, patch)}
               onDelete={id => editorRef.current?.deleteMaterial(id)}
               linePosition={linePosition} onLinePositionChange={setLinePosition} />}
           </MaterialInteraction>
           </div>
-          <div className="inspector-footer"><span>{selectedMaterial ? '修改可撤回 · 材质独立管理' : '先选材质，再点击闭合区域'}</span></div>
+          <div className="inspector-footer"><span>{selectedMaterial ? '修改可撤回' : '仅影响下一次填充'}</span></div>
         </aside>
       </div>
 

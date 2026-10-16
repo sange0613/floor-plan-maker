@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check, Palette } from 'lucide-react'
+import WorkbenchPopover from './WorkbenchPopover'
 
 export const COLOR_PRESETS = [
   { id: 'bauhaus-classic', group: '包豪斯配色', name: '经典原色', colors: ['#D94B3D', '#F2C94C', '#2F5D8C', '#E8E1D4', '#1E1E1C'] },
@@ -20,9 +21,8 @@ const GRAYS = [
   ['中浅灰', '#AAAAAA'], ['浅灰', '#DDDDDD'], ['白', '#FFFFFF'],
 ]
 
-export default function FillColorPresets({ color, onChange }) {
+export default function FillColorPresets({ color, onChange, open, onOpenChange }) {
   const [selectedPresetId, setSelectedPresetId] = useState('neutral-gray')
-  const [open, setOpen] = useState(false)
   const selectedPreset = COLOR_PRESETS.find((preset) => preset.id === selectedPresetId) || COLOR_PRESETS[0]
 
   return (
@@ -33,23 +33,8 @@ export default function FillColorPresets({ color, onChange }) {
           <span>{name}</span>{color.toUpperCase() === value ? <Check size={12} /> : null}
         </button>)}
       </div>
-      <button
-        type="button"
-        className="palette-trigger"
-        onClick={() => setOpen((current) => !current)}
-        aria-expanded={open}
-        aria-controls="left-palette-panel"
-      >
-        <Palette size={22} strokeWidth={1.7} />
-        <span>更多配色</span>
-        <i style={{ background: color }} aria-hidden="true" />
-      </button>
-      {open ? (
-        <div className="palette-flyout" id="left-palette-panel">
-          <div className="palette-flyout-heading">
-            <strong>配色方案</strong>
-            <small>选择一个颜色填充</small>
-          </div>
+      <WorkbenchPopover label="更多配色" open={open} onToggle={() => onOpenChange(!open)} onClose={() => onOpenChange(false)} triggerClass="palette-trigger" panelClass="workbench-palette"
+        trigger={<><Palette size={19} strokeWidth={1.7} /><span>更多配色</span><i style={{ background: color }} aria-hidden="true" /></>}>
           <select aria-label="选择配色方案" value={selectedPresetId} onChange={(event) => setSelectedPresetId(event.target.value)}>
             {PRESET_GROUPS.map((group) => (
               <optgroup label={group} key={group}>
@@ -66,7 +51,7 @@ export default function FillColorPresets({ color, onChange }) {
                 className={`vertical-preset-swatch ${active ? 'active' : ''}`}
                 style={{ background: presetColor }}
                 key={presetColor}
-                onClick={() => { onChange(presetColor); setOpen(false) }}
+                onClick={() => { onChange(presetColor); onOpenChange(false) }}
                 aria-pressed={active}
                 aria-label={`选择${selectedPreset.name}颜色 ${presetColor}`}
                 title={presetColor}
@@ -76,8 +61,7 @@ export default function FillColorPresets({ color, onChange }) {
             )
           })}
           </div>
-        </div>
-      ) : null}
+      </WorkbenchPopover>
     </div>
   )
 }

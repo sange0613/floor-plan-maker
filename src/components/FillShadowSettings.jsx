@@ -1,4 +1,4 @@
-import { Box, Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 
 export const DEFAULT_FILL_SHADOW = {
   color: '#3C302C',
@@ -22,7 +22,6 @@ export default function FillShadowSettings({ layers, shadows, onAdd, onChange, o
 
   return (
     <div className="fill-shadow-panel">
-      <p className="shadow-intro"><Box size={14} />多步长阴影：沿角度叠加多层距离与模糊，且不改动填色。</p>
       {layers.map((layer) => {
         const key = String(layer.id ?? layer.color)
         const label = layer.name || layer.color
@@ -47,7 +46,7 @@ export default function FillShadowSettings({ layers, shadows, onAdd, onChange, o
             <div className="shadow-card-heading">
               <span className="layer-swatch" style={{ background: layer.color }} />
               <strong>{label}</strong>
-              <small>独立效果</small>
+              <small>{shadow.enabled === false ? '已关闭' : '效果'}</small>
               <button type="button" onClick={() => onRemove(key)} aria-label={`移除材质图层 ${label} 的阴影`}><Trash2 size={14} /></button>
             </div>
             <div className="shadow-color-row">

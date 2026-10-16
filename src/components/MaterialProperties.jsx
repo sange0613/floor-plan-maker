@@ -9,11 +9,10 @@ export default function MaterialProperties({ material, selection, scope, onScope
     <div className="property-context"><span className="context-dot" />{selection ? region ? '已选区域' : '已选材质图层' : '下一次填充'}</div>
     <div className="current-material"><MaterialThumbnail material={material} /><div><strong>{materialName(material)}</strong><small>{textured ? '建筑纹理 · 无缝重复' : '纯色填充'}</small></div></div>
     {selection ? <>
-      <label className="material-field">修改范围<select aria-label="材质修改范围" value={region ? scope : 'material'} onChange={event => onScopeChange(event.target.value)} disabled={!region}>
+      <label className="material-field">材质范围<select aria-label="材质修改范围" value={region ? scope : 'material'} onChange={event => onScopeChange(event.target.value)} disabled={!region}>
         <option value="region">仅此区域</option><option value="material">同材质全部区域</option>
       </select></label>
-      <p className="canvas-help">{region && scope === 'region' ? '仅调整当前区域，其他房间保持不变。' : '调整这一材质图层的全部区域。'}</p>
-    </> : <p className="canvas-help">这些设置用于下一次填充，不会改变已完成的区域。</p>}
+    </> : null}
     <span className="mini-label">底色</span><FillColorInput color={material.color} onChange={color => onChange({ color })} />
     {textured ? <div className="texture-fields">
       <label className="material-field">纹理大小<span className="value-unit"><input aria-label="纹理大小" type="number" min="8" max="240" value={material.size} onChange={event => onChange({ size: Number(event.target.value) })} />px</span></label>
