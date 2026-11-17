@@ -109,15 +109,15 @@ const EditorCanvas = forwardRef(function EditorCanvas(
       sourceCanvas: sourceRef.current,
       mask: engine.mask,
       lineAlpha: engine.lineAlpha,
-      fillData: engine.fill.data.slice(),
-      materialState: cloneMaterialState(engine.materialState),
+      materialState: { assignments: encodeAssignments(engine.materialState.assignments), materials: structuredClone(engine.materialState.materials), nextId: engine.materialState.nextId },
       width: engine.width,
       height: engine.height,
       layerCounts: new Map(engine.layerCounts),
       layerOrder: [...engine.layerOrder],
       regions: engine.regions,
     })
-    const maxEntries = engine.width * engine.height > 2_500_000 ? 6 : 12
+    // One initial state plus 100 undoable edits.
+    const maxEntries = 101
     if (timeline.entries.length > maxEntries) timeline.entries.splice(0, timeline.entries.length - maxEntries)
     timeline.index = timeline.entries.length - 1
     emitHistory()
@@ -386,8 +386,8 @@ const EditorCanvas = forwardRef(function EditorCanvas(
     engineRef.current = {
       mask: snapshot.mask,
       lineAlpha: snapshot.lineAlpha,
-      fill: new ImageData(new Uint8ClampedArray(snapshot.fillData), snapshot.width, snapshot.height),
-      materialState: cloneMaterialState(snapshot.materialState),
+      fill: new ImageData(snapshot.width, snapshot.height),
+      materialState: { ...snapshot.materialState, materials: structuredClone(snapshot.materialState.materials), assignments: decodeAssignments(snapshot.materialState.assignments, snapshot.width * snapshot.height) },
       displayFill: new ImageData(snapshot.width, snapshot.height),
       width: snapshot.width,
       height: snapshot.height,
