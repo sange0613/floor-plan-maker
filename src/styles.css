@@ -20,6 +20,10 @@ button { color: inherit; }
 .topbar { display: flex; align-items: center; gap: 26px; padding: 0 24px; border-bottom: 1px solid var(--border); background: #fff; z-index: 5; }
 .brand { display: flex; align-items: center; gap: 3px; padding-right: 24px; border-right: 1px solid var(--border); color: var(--accent); font-size: 24px; font-weight: 750; letter-spacing: -2px; }
 .brand span:first-child { border: 2px solid currentColor; border-radius: 4px; padding: 0 2px; line-height: 28px; }
+.brand-edit, .brand-input { min-width: 0; max-width: 240px; border: 0; padding: 4px 0; background: transparent; color: inherit; font: inherit; letter-spacing: -.04em; }
+.brand-edit { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.brand-edit:hover { color: #666; }
+.brand-input { width: 190px; outline: none; border-bottom: 1px solid #777; }
 .document-title { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 560; min-width: 0; }
 .document-title span { max-width: 38vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .top-actions { margin-left: auto; display: flex; gap: 10px; }
@@ -467,6 +471,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
   .canvas-view-controls .canvas-fit-control span { display: none; }
   .topbar { gap: 6px; padding-inline: 8px; }
   .brand { font-size: 18px; padding-right: 0; border: 0; }
+  .brand-edit, .brand-input { max-width: 112px; }
   .top-actions { gap: 4px; }
   .top-actions .button { width: 32px; }
   .command-panel { width: 216px; }

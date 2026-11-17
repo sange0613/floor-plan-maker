@@ -62,6 +62,9 @@ const MAX_ZOOM = 400
 const ZOOM_STEP = 10
 
 export default function App() {
+  const [brandName, setBrandName] = useState(() => { try { return localStorage.getItem('floor-plan-custom-name') || '' } catch { return '' } })
+  const [editingBrand, setEditingBrand] = useState(false)
+  const [brandDraft, setBrandDraft] = useState('')
   const [source, setSource] = useState(null)
   const [documentName, setDocumentName] = useState('花卉线稿_01.png')
   const [tool, setTool] = useState('bucket')
@@ -104,6 +107,13 @@ export default function App() {
   const workspaceRef = useRef(null)
   const pageProjectsRef = useRef({})
   const pdfDataRef = useRef(null)
+
+  const saveBrandName = () => {
+    const name = brandDraft.trim().slice(0, 24)
+    setBrandName(name)
+    try { if (name) localStorage.setItem('floor-plan-custom-name', name); else localStorage.removeItem('floor-plan-custom-name') } catch { /* The name still works for this session. */ }
+    setEditingBrand(false)
+  }
 
   // Closing a popover unmounts its focused inputs without necessarily firing
   // blur. Commit the current edit before the next interaction can start.
@@ -433,7 +443,10 @@ export default function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-          <div className="brand" aria-label="彩平图制作"><span>彩</span><span>平图制作</span></div>
+        <div className="brand">
+          {editingBrand ? <input className="brand-input" aria-label="自定义左上角名称" maxLength={24} autoFocus value={brandDraft} onChange={event => setBrandDraft(event.target.value)} onBlur={saveBrandName} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { event.stopPropagation(); setEditingBrand(false) } }} /> :
+            <button className="brand-edit" type="button" title="点击修改名称" aria-label="修改左上角名称" onClick={() => { setBrandDraft(brandName); setEditingBrand(true) }}>{brandName || '点击设置名称'}</button>}
+        </div>
         <div className="document-title"><FileText size={18} strokeWidth={1.7} /><span>{documentName}</span></div>
         <div className="top-actions">
           <button className="button secondary" aria-label="导入线稿" type="button" onClick={() => lineInputRef.current?.click()}><Upload size={17} />导入线稿</button>
