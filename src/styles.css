@@ -41,8 +41,8 @@ button { color: inherit; }
 .tool-rail .palette-trigger { height: 42px; }
 .hatch-symbol { width: 23px; height: 20px; border: 1px solid #888; border-radius: 3px; background: repeating-linear-gradient(135deg, transparent 0 4px, currentColor 4px 5px, transparent 5px 8px); }
 .quick-shadow-controls { display: flex; flex-direction: column; gap: 4px; padding-top: 7px; border-top: 1px solid var(--border); }
-.quick-shadow-controls label { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; cursor: pointer; }
-.quick-shadow-controls input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.quick-shadow-controls > label { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; cursor: pointer; }
+.quick-shadow-controls > label > input { width: 20px; height: 20px; margin: 0; accent-color: #d66f4d; cursor: pointer; }
 .quick-shadow-controls button { min-height: 25px; border: 1px solid var(--border); border-radius: 5px; background: #fff; font-size: 9px; padding: 3px 1px; cursor: pointer; }
 .quick-shadow-controls button[aria-pressed=true] { background: var(--accent-soft); color: #bb5735; border-color: #efb69f; }
 .quick-shadow-controls button:disabled { opacity: .4; cursor: default; }
@@ -57,7 +57,7 @@ button { color: inherit; }
   .tool-rail .tool-button { height: 36px; gap: 2px; }
   .tool-rail .palette-trigger { height: 32px; gap: 1px; }
   .quick-gray-swatches button { height: 24px; }
-  .quick-shadow-controls label { flex-direction: row; justify-content: center; font-size: 8px; }
+  .quick-shadow-controls > label { flex-direction: row; justify-content: center; font-size: 8px; }
 }
 .preview-pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 .workspace { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 58px 42px 44px; background-color: #edf1f3; background-image: linear-gradient(45deg, #e5eaed 25%, transparent 25%), linear-gradient(-45deg, #e5eaed 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5eaed 75%), linear-gradient(-45deg, transparent 75%, #e5eaed 75%); background-size: 28px 28px; background-position: 0 0, 0 14px, 14px -14px, -14px 0; }
@@ -419,7 +419,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .workbench-rail .quick-gray-swatches { gap: 4px; }
 .workbench-rail .quick-gray-swatches button { height: 32px; font-size: 10px; }
 .workbench-rail .quick-shadow-controls { gap: 9px; padding: 12px 4px 0; }
-.workbench-rail .quick-shadow-controls label { font-size: 10px; }
+.workbench-rail .quick-shadow-controls > label { font-size: 10px; }
 .quick-shadow-controls .shadow-options-trigger { display: flex; justify-content: center; align-items: center; gap: 4px; min-height: 30px; width: 100%; border: 0; background: transparent; color: var(--muted); font-size: 10px; }
 .workbench-popover { position: relative; }
 .workbench-popover-panel { position: absolute; z-index: 40; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: #fff; box-shadow: 0 12px 40px #24344424; outline: none; overflow-y: auto; overscroll-behavior: contain; }
@@ -457,7 +457,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
   .workbench-rail .quick-gray-swatches { padding-inline: 2px; gap: 3px; }
   .workbench-rail .quick-gray-swatches button { height: 28px; font-size: 9px; }
   .workbench-rail .quick-shadow-controls { padding-inline: 0; }
-  .workbench-rail .quick-shadow-controls label { flex-direction: column; font-size: 9px; }
+  .workbench-rail .quick-shadow-controls > label { flex-direction: column; font-size: 9px; }
   .quick-shadow-controls .shadow-options-trigger { font-size: 9px; }
   .workbench-palette, .workbench-shadow { left: 66px; width: min(304px, calc(100vw - 82px)); }
   .workbench-palette { width: min(224px, calc(100vw - 82px)); }
@@ -492,4 +492,8 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .shadow-value { display: inline-flex; align-items: center; gap: 3px; padding: 3px 6px; border: 1px solid #dedede; border-radius: 6px; background: #fff; color: #777; }
 .shadow-value:focus-within { border-color: #555; }
 .shadow-value input { width: 55px; border: 0; outline: 0; background: transparent; color: #222; text-align: right; font-size: 12px; }
-.shadow-control .slider { display: block; }
+.shadow-control .slider { display: block; height: 24px; margin: 0; background: transparent; cursor: pointer; touch-action: pan-y; }
+.shadow-control .slider::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: #d6d6d6; }
+.shadow-control .slider::-webkit-slider-thumb { width: 18px; height: 18px; margin-top: -7px; }
+.shadow-control .slider::-moz-range-track { height: 4px; border-radius: 2px; background: #d6d6d6; }
+.shadow-control .slider::-moz-range-thumb { width: 16px; height: 16px; border: 1.5px solid #242424; border-radius: 50%; background: #fff; }
