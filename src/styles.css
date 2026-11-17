@@ -42,7 +42,7 @@ button { color: inherit; }
 .hatch-symbol { width: 23px; height: 20px; border: 1px solid #888; border-radius: 3px; background: repeating-linear-gradient(135deg, transparent 0 4px, currentColor 4px 5px, transparent 5px 8px); }
 .quick-shadow-controls { display: flex; flex-direction: column; gap: 4px; padding-top: 7px; border-top: 1px solid var(--border); }
 .quick-shadow-controls label { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; cursor: pointer; }
-.quick-shadow-controls input { accent-color: var(--accent); }
+.quick-shadow-controls input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 .quick-shadow-controls button { min-height: 25px; border: 1px solid var(--border); border-radius: 5px; background: #fff; font-size: 9px; padding: 3px 1px; cursor: pointer; }
 .quick-shadow-controls button[aria-pressed=true] { background: var(--accent-soft); color: #bb5735; border-color: #efb69f; }
 .quick-shadow-controls button:disabled { opacity: .4; cursor: default; }
