@@ -21,6 +21,12 @@ const loadImage = (url) => new Promise((resolve, reject) => {
   image.onerror = reject
   image.src = url
 })
+const readDataUrl = file => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(reader.result)
+  reader.onerror = () => reject(reader.error)
+  reader.readAsDataURL(file)
+})
 
 const renderPdfPage = async (pdf, pageNumber) => {
   const page = await pdf.getPage(pageNumber)
@@ -96,6 +102,8 @@ export default function App() {
   const projectInputRef = useRef(null)
   const editorRef = useRef(null)
   const workspaceRef = useRef(null)
+  const pageProjectsRef = useRef({})
+  const pdfDataRef = useRef(null)
 
   // Closing a popover unmounts its focused inputs without necessarily firing
   // blur. Commit the current edit before the next interaction can start.
@@ -175,13 +183,19 @@ export default function App() {
     setDocumentName(file.name)
     try {
       if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        const pdfData = await readDataUrl(file)
         const data = await file.arrayBuffer()
         const pdf = await loadPdfDocument(data)
+        const firstPage = await renderPdfPage(pdf, 1)
+        pageProjectsRef.current = {}
+        pdfDataRef.current = pdfData
         setPdfDocument(pdf)
         setPage(1)
         setPageCount(pdf.numPages)
-        setSource(await renderPdfPage(pdf, 1))
+        setSource(firstPage)
       } else {
+        pageProjectsRef.current = {}
+        pdfDataRef.current = null
         setPdfDocument(null)
         setPage(1)
         setPageCount(1)
@@ -203,13 +217,29 @@ export default function App() {
   }
 
   const changePage = async (nextPage) => {
-    if (!pdfDocument || nextPage < 1 || nextPage > pageCount) return
+    if (!pdfDocument || busy || nextPage === page || nextPage < 1 || nextPage > pageCount) return
     setBusy(true)
-    setPage(nextPage)
-
-
-
-    setSource(await renderPdfPage(pdfDocument, nextPage))
+    try {
+      const current = editorRef.current?.exportProjectData()
+      if (!current) throw new Error('当前页面尚未准备好')
+      const saved = pageProjectsRef.current[nextPage]
+      if (saved) {
+        await editorRef.current.importProjectData(saved, { sensitivity, gapSize })
+      } else {
+        const nextSource = await renderPdfPage(pdfDocument, nextPage)
+        setSource(nextSource)
+      }
+      pageProjectsRef.current[page] = current
+      setPage(nextPage)
+      setTool('bucket')
+      setCropRequest(null)
+      setSelection(null)
+      setMessage(`第 ${nextPage} / ${pageCount} 页${saved ? ' · 已恢复填色' : ' · 正在识别区域'}`)
+    } catch (error) {
+      console.error(error)
+      setBusy(false)
+      setMessage('页面切换失败，当前页面未更改，请重试')
+    }
   }
 
   const importBackground = async (event) => {
@@ -252,7 +282,7 @@ export default function App() {
     if (!url) return
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `${documentName.replace(/\.[^.]+$/, '')}_填色.png`
+    anchor.download = `${documentName.replace(/\.[^.]+$/, '')}${pageCount > 1 ? `_第${page}页` : ''}_填色.png`
     anchor.click()
     setMessage(`作品已导出 · ${exportScale}× PNG${exportTransparent ? ' · 透明背景' : ''}`)
   }
@@ -265,6 +295,7 @@ export default function App() {
       savedAt: new Date().toISOString(),
       documentName,
       editor,
+      ...(pdfDocument && pdfDataRef.current ? { pdf: { data: pdfDataRef.current, currentPage: page, pages: { ...pageProjectsRef.current, [page]: editor } } } : {}),
       settings: {
         fillColor: activeMaterial.color, lineColor, lineOpacity, linePosition, sensitivity, gapSize, hoverPreview,
         backgroundOpacity, activeMaterial, autoShadow,
@@ -289,6 +320,12 @@ export default function App() {
       if (![1, 2].includes(project.version) || !project.editor) throw new Error('Unsupported project')
       const settings = project.settings || {}
       const restoredBackground = project.background?.data ? await loadImage(project.background.data) : null
+      let restoredPdf = null
+      if (project.pdf?.data) {
+        const response = await fetch(project.pdf.data)
+        restoredPdf = await loadPdfDocument(await response.arrayBuffer())
+        if (!Number.isInteger(project.pdf.currentPage) || project.pdf.currentPage < 1 || project.pdf.currentPage > restoredPdf.numPages) throw new Error('PDF 页码无效')
+      }
       const imported = await editorRef.current?.importProjectData(project.editor, {
         ...settings,
         sensitivity: settings.sensitivity ?? 54,
@@ -296,9 +333,11 @@ export default function App() {
       })
       if (!imported) throw new Error('项目缺少线稿或填充数据')
       setDocumentName(project.documentName || file.name.replace(/\.weicolor$/i, ''))
-      setPdfDocument(null)
-      setPage(1)
-      setPageCount(1)
+      pageProjectsRef.current = restoredPdf ? (project.pdf.pages || {}) : {}
+      pdfDataRef.current = restoredPdf ? project.pdf.data : null
+      setPdfDocument(restoredPdf)
+      setPage(restoredPdf ? project.pdf.currentPage : 1)
+      setPageCount(restoredPdf ? restoredPdf.numPages : 1)
       setActiveMaterial(normalizeMaterial(settings.activeMaterial || { color: settings.fillColor }))
       setAutoShadow(settings.autoShadow !== false)
       setSelection(null)
@@ -418,6 +457,16 @@ export default function App() {
               <button className={`tool-button hatch-shortcut ${tool === 'bucket' && activeMaterial.type === 'hatch' ? 'active' : ''}`} type="button" aria-label="45°剖面线" aria-pressed={tool === 'bucket' && activeMaterial.type === 'hatch'} onClick={() => chooseMaterial({ ...activeMaterial, type: 'hatch', name: '45°剖面线', angle: 0, transform: [1, 0, 0, 1, 0, 0], inkColor: '#333333' })}><span className="hatch-symbol" /><span>剖面线</span></button>
             </div>
             <FillColorPresets color={activeMaterial.color} onChange={chooseFillColor} open={openPopover === 'palette'} onOpenChange={open => setOpenPopover(open ? 'palette' : null)} />
+            <WorkbenchPopover label="区域识别" open={openPopover === 'recognition'} onToggle={() => setOpenPopover(value => value === 'recognition' ? null : 'recognition')} onClose={() => setOpenPopover(null)} triggerClass="shadow-options-trigger" panelClass="workbench-shadow" trigger={<><ScanLine size={15} /><span>区域识别</span></>}>
+              <strong>线稿间隙修复</strong>
+              <p className="canvas-help">线条断开时可提高修复强度；过强可能连接相邻线条。</p>
+              <div className="export-scale-options" role="group" aria-label="间隙修复强度">
+                {[[0, '关闭'], [1, '轻度'], [4, '较强']].map(([value, label]) => <button key={value} type="button" className={gapSize === value ? 'active' : ''} aria-pressed={gapSize === value} onClick={() => setGapSize(value)}>{label}<small>{value} px</small></button>)}
+              </div>
+              <label className="toggle-row compact"><span><strong>悬停预览</strong><small>填色前高亮围合区域</small></span><input type="checkbox" checked={hoverPreview} onChange={event => setHoverPreview(event.target.checked)} /></label>
+              <button className="full-button" type="button" disabled={busy || !source} onClick={() => { editorRef.current?.recognize(); setOpenPopover(null) }}>重新识别区域</button>
+              <p className="canvas-help">选择强度后点击重新识别；已有填色会保留，可撤销。</p>
+            </WorkbenchPopover>
             <div className="quick-shadow-controls">
               <label title="新填色自动使用长投影"><input type="checkbox" aria-label="填色自动加阴影" checked={autoShadow} onChange={event => setAutoShadow(event.target.checked)} /><span>自动阴影</span></label>
               <WorkbenchPopover label="阴影选项" open={openPopover === 'shadow'} onToggle={() => setOpenPopover(value => value === 'shadow' ? null : 'shadow')} onClose={() => setOpenPopover(null)} triggerClass="shadow-options-trigger" panelClass="workbench-shadow" trigger={<><SlidersHorizontal size={15} /><span>选项</span></>}>
@@ -446,10 +495,10 @@ export default function App() {
             </div>
             <div className="canvas-view-controls">
               <button className="canvas-center-control" type="button" onClick={centerCanvas} aria-label="一键居中并放大到200%" title="居中并放大到 200%"><LocateFixed size={16} /><span>居中</span></button>
+              <button className="canvas-fit-control" type="button" disabled={busy || !source} onClick={() => rotateCanvas(false)} aria-label="向左旋转90度" title="向左旋转 90°"><RotateCcw size={16} /></button>
+              <button className="canvas-fit-control" type="button" disabled={busy || !source} onClick={() => rotateCanvas(true)} aria-label="向右旋转90度" title="向右旋转 90°"><RotateCw size={16} /></button>
               <WorkbenchPopover label="画布工具" open={openPopover === 'canvas'} onToggle={() => setOpenPopover(value => value === 'canvas' ? null : 'canvas')} onClose={() => setOpenPopover(null)} triggerClass="canvas-fit-control" panelClass="command-panel canvas-command-panel" trigger={<><Settings2 size={16} /><span>画布工具</span></>}>
                 <button type="button" onClick={() => { fitCanvas(); setOpenPopover(null) }} aria-label="完整显示画布"><ScanLine size={16} />完整显示</button>
-                <button type="button" disabled={busy || !source} onClick={() => { rotateCanvas(false); setOpenPopover(null) }} aria-label="向左旋转90度"><RotateCcw size={16} />向左旋转 90°</button>
-                <button type="button" disabled={busy || !source} onClick={() => { rotateCanvas(true); setOpenPopover(null) }} aria-label="向右旋转90度"><RotateCw size={16} />向右旋转 90°</button>
                 <button type="button" aria-label="自由裁剪" disabled={busy || !source} onClick={() => { startCrop('free', null); setOpenPopover(null) }}><Crop size={16} />自由裁剪</button>
                 <button type="button" aria-label="画布比例" onClick={() => { setSettingsPanel('settings'); setOpenPopover(null) }}><Settings2 size={16} />画布比例与设置</button>
                 <button type="button" aria-label="选择区域" aria-pressed={tool === 'select'} onClick={() => { setTool('select'); setCropRequest(null); setOpenPopover(null) }}><MousePointer2 size={16} />选择区域</button>
@@ -596,7 +645,7 @@ export default function App() {
             <button className="full-button" type="button" onClick={() => editorRef.current?.recognize()} disabled={busy}><RotateCcw size={16} />{busy ? '识别中…' : '重新识别'}</button>
           </InspectorSection>
           <InspectorSection title="文档" defaultOpen={false}>
-            <div className="row page-row"><span>页面 {page} / {pageCount}</span><div className="stepper"><button type="button" onClick={() => changePage(page - 1)} disabled={page <= 1}><ChevronLeft size={16} /></button><span>{page}</span><button type="button" onClick={() => changePage(page + 1)} disabled={page >= pageCount}><ChevronRight size={16} /></button></div></div>
+            <div className="row page-row"><span>页面 {page} / {pageCount}</span><div className="stepper"><button type="button" aria-label="上一页" onClick={() => changePage(page - 1)} disabled={busy || page <= 1}><ChevronLeft size={16} /></button><span>{page}</span><button type="button" aria-label="下一页" onClick={() => changePage(page + 1)} disabled={busy || page >= pageCount}><ChevronRight size={16} /></button></div></div>
           </InspectorSection>
           </div>
         </section>
@@ -604,7 +653,7 @@ export default function App() {
 
       <footer className="statusbar">
         <div className="region-status"><ScanLine size={17} /><span>{regionCount} 个区域</span><span className="active-tool-status">{busy ? '处理中…' : tool === 'bucket' ? `油漆桶 · ${activeMaterial.name}` : tool === 'crop' ? '裁剪 · 应用后生效' : '选择 · 选色开始填充'}</span></div>
-        <div className="zoom-controls"><button type="button" onClick={() => setZoom((value) => Math.max(MIN_ZOOM, value - ZOOM_STEP))} aria-label="缩小画布"><ZoomOut size={16} /></button><span>{zoom}%</span><button type="button" onClick={() => setZoom((value) => Math.min(MAX_ZOOM, value + ZOOM_STEP))} aria-label="放大画布"><ZoomIn size={16} /></button></div>
+        <div className="zoom-controls">{pdfDocument && pageCount > 1 && <div className="pdf-page-controls" aria-label="PDF 分页"><button type="button" aria-label="上一页" disabled={busy || page <= 1} onClick={() => changePage(page - 1)}><ChevronLeft size={16} /></button><span>第 {page} / {pageCount} 页</span><button type="button" aria-label="下一页" disabled={busy || page >= pageCount} onClick={() => changePage(page + 1)}><ChevronRight size={16} /></button></div>}<button type="button" onClick={() => setZoom((value) => Math.max(MIN_ZOOM, value - ZOOM_STEP))} aria-label="缩小画布"><ZoomOut size={16} /></button><span>{zoom}%</span><button type="button" onClick={() => setZoom((value) => Math.min(MAX_ZOOM, value + ZOOM_STEP))} aria-label="放大画布"><ZoomIn size={16} /></button></div>
       </footer>
     </main>
   )

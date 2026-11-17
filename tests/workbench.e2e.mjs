@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
-const browser = await chromium.launch({ headless: true })
+const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}) })
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   const errors = []
@@ -71,7 +71,6 @@ try {
   assert.equal(live(await save()).find(m => m.type === 'hatch').visible, false)
   await page.getByRole('button', { name: '撤销', exact: true }).click()
   await page.getByRole('button', { name: '收起属性面板', exact: true }).click()
-  await page.getByRole('button', { name: '画布工具', exact: true }).click()
   await page.getByRole('button', { name: '向右旋转90度', exact: true }).click()
   const rotated = await save(); assert.equal(rotated.editor.width, filled.editor.height)
   await page.getByRole('button', { name: '撤销', exact: true }).click()

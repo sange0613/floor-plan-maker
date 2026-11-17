@@ -118,6 +118,8 @@ button.layer-swatch { cursor: pointer; padding: 0; flex-shrink: 0; }
 .section-content { padding: 0 18px 18px; }
 .row, .control-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
 .page-row { font-weight: 560; }
+.pdf-page-controls { display: flex; align-items: center; gap: 4px; margin-right: 12px; white-space: nowrap; font-size: 12px; }
+.pdf-page-controls button:disabled { opacity: .35; cursor: default; }
 .stepper { display: flex; align-items: center; gap: 6px; }
 .stepper button, .stepper span { width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 6px; background: #fff; display: grid; place-items: center; font-size: 12px; }
 .stepper button { cursor: pointer; }
@@ -468,4 +470,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
   .top-actions { gap: 4px; }
   .top-actions .button { width: 32px; }
   .command-panel { width: 216px; }
+}
+@media (max-width: 500px) {
+  .canvas-view-controls { top: 44px; }
 }
