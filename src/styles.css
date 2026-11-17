@@ -487,3 +487,9 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .shadow-card-heading button, .text-danger, .appearance-clear, .color-input-error { color: #555; }
 .shadow-card-heading button:hover, .layer-delete:hover, .appearance-clear:hover { color: #222; background: #eee; }
 .recognition-panel { padding: 18px; overflow-y: auto; font-size: 12px; }
+.shadow-control { margin-top: 14px; }
+.shadow-control-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: 11px; color: #555; }
+.shadow-value { display: inline-flex; align-items: center; gap: 3px; padding: 3px 6px; border: 1px solid #dedede; border-radius: 6px; background: #fff; color: #777; }
+.shadow-value:focus-within { border-color: #555; }
+.shadow-value input { width: 55px; border: 0; outline: 0; background: transparent; color: #222; text-align: right; font-size: 12px; }
+.shadow-control .slider { display: block; }

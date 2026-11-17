@@ -1,4 +1,29 @@
 import { Plus, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+
+function ShadowControl({ label, unit = '', value, min, max, step = 1, onChange }) {
+  const [draft, setDraft] = useState(String(value))
+  const [editing, setEditing] = useState(false)
+  useEffect(() => { if (!editing) setDraft(String(value)) }, [value, editing])
+  const commit = () => {
+    const parsed = Number(draft)
+    if (draft.trim() && Number.isFinite(parsed)) {
+      const next = Math.min(max, Math.max(min, parsed))
+      onChange(next)
+      setDraft(String(next))
+    } else setDraft(String(value))
+    setEditing(false)
+  }
+  return <div className="shadow-control">
+    <div className="shadow-control-heading"><span>{label}</span><label className="shadow-value"><input type="number" aria-label={`${label}数值`} min={min} max={max} step={step} value={draft} onFocus={() => setEditing(true)} onChange={event => {
+      const next = event.target.value
+      setDraft(next)
+      const parsed = Number(next)
+      if (next.trim() && Number.isFinite(parsed) && parsed >= min && parsed <= max) onChange(parsed)
+    }} onBlur={commit} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }} /><span>{unit}</span></label></div>
+    <input className="slider" type="range" aria-label={`${label}滑杆`} min={min} max={max} step={step} value={value} onChange={event => onChange(Number(event.target.value))} />
+  </div>
+}
 
 export const DEFAULT_FILL_SHADOW = {
   color: '#3C302C',
@@ -70,24 +95,12 @@ export default function FillShadowSettings({ layers, shadows, onAdd, onChange, o
                 <option value="solid">硬边厚度</option>
               </select>
             </label>
-            <label className="field-label" htmlFor={`shadow-angle-${key}`}>投影角度 <output>{shadow.angle}°</output></label>
-            <input id={`shadow-angle-${key}`} className="slider" type="range" min="-180" max="180" value={shadow.angle} onChange={(event) => update('angle', Number(event.target.value))} />
-            <label className="field-label" htmlFor={`shadow-distance-${key}`}>总距离 <output>{shadow.distance}px</output></label>
-            <input id={`shadow-distance-${key}`} className="slider" type="range" min="0" max="500" value={shadow.distance} onChange={(event) => update('distance', Number(event.target.value))} />
-            <div className="shadow-step-grid">
-              <label>
-                <span>Steps</span>
-                <input type="number" min="1" max="30" value={shadow.steps} aria-label={`材质图层 ${label} 的阴影步数`} onChange={(event) => update('steps', Math.max(1, Math.min(30, Number(event.target.value))))} />
-              </label>
-              <label>
-                <span>Step Scale</span>
-                <input type="number" min="1" max="3" step="0.1" value={shadow.stepScale} aria-label={`材质图层 ${label} 的阴影步距比例`} onChange={(event) => update('stepScale', Math.max(1, Math.min(3, Number(event.target.value))))} />
-              </label>
-            </div>
-            <label className="field-label" htmlFor={`shadow-blur-${key}`}>边缘柔化 <output>{shadow.blur}px</output></label>
-            <input id={`shadow-blur-${key}`} className="slider" type="range" min="0" max="300" value={shadow.blur} onChange={(event) => update('blur', Number(event.target.value))} />
-            <label className="field-label" htmlFor={`shadow-opacity-${key}`}>阴影透明度 <output>{shadow.opacity}%</output></label>
-            <input id={`shadow-opacity-${key}`} className="slider" type="range" min="0" max="80" value={shadow.opacity} onChange={(event) => update('opacity', Number(event.target.value))} />
+            <ShadowControl label="投影角度" unit="°" min={-180} max={180} value={shadow.angle} onChange={value => update('angle', value)} />
+            <ShadowControl label="总距离" unit="px" min={0} max={500} value={shadow.distance} onChange={value => update('distance', value)} />
+            <ShadowControl label="步数" min={1} max={30} value={shadow.steps} onChange={value => update('steps', value)} />
+            <ShadowControl label="步距比例" min={1} max={3} step={0.1} value={shadow.stepScale} onChange={value => update('stepScale', value)} />
+            <ShadowControl label="边缘柔化" unit="px" min={0} max={300} value={shadow.blur} onChange={value => update('blur', value)} />
+            <ShadowControl label="阴影透明度" unit="%" min={0} max={100} value={shadow.opacity} onChange={value => update('opacity', value)} />
           </div>
         )
       })}

@@ -47,8 +47,8 @@ try {
   await page.getByRole('button', { name: '阴影选项', exact: true }).click()
   assert.ok(await page.getByRole('dialog', { name: '阴影选项' }).isVisible())
   assert.equal(await page.getByLabel('阴影调整范围').inputValue(), 'color')
-  await page.locator('input[id^="shadow-angle-"]').fill('70')
-  await page.locator('input[id^="shadow-angle-"]').press('Tab')
+  await page.getByLabel('投影角度数值').fill('70')
+  await page.getByLabel('投影角度数值').press('Tab')
   await page.keyboard.press('Escape')
   assert.equal(await page.getByRole('dialog', { name: '阴影选项' }).count(), 0)
   assert.ok(live(await save()).every(m => m.shadow.angle === 70))
@@ -56,7 +56,7 @@ try {
   assert.ok(live(await save()).every(m => m.shadow.angle === 33))
   for (const steps of ['23', '25']) {
     await page.getByRole('button', { name: '阴影选项', exact: true }).click()
-    await page.getByRole('dialog', { name: '阴影选项' }).locator('input[type=number]').first().fill(steps)
+    await page.getByLabel('步数数值').fill(steps)
     await page.locator('.region-status').click()
   }
   assert.ok(live(await save()).every(m => m.shadow.steps === 25))
