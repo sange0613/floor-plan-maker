@@ -680,7 +680,7 @@ const EditorCanvas = forwardRef(function EditorCanvas(
       recordHistory(`填充 · ${materialName(material)}`)
       onMessage(!material.visible || material.opacity === 0 ? '填充已保存，但材质图层不可见；请在图层中显示或调高透明度' : `已填充 ${materialName(material)} · 可撤销`)
     } else if (result.status === 'open') {
-      onMessage('区域未封闭或连通画布边缘：点击左侧「区域识别」，提高间隙修复强度后重新识别')
+      onMessage('区域未封闭或连通画布边缘：点击「更多」中的「区域识别」，提高间隙修复强度后重新识别')
     } else if (result.status === 'line') {
       onMessage('点到线稿了，请点击线条围成的空白区域')
     } else if (result.status === 'same') {

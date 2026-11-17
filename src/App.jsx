@@ -441,6 +441,7 @@ export default function App() {
           <button className="button primary" aria-label="导出作品" type="button" onClick={exportArtwork}><Download size={17} />导出作品</button>
           <WorkbenchPopover label="更多操作" open={openPopover === 'more'} onToggle={() => setOpenPopover(value => value === 'more' ? null : 'more')} onClose={() => setOpenPopover(null)} triggerClass="button secondary" panelClass="command-panel header-command-panel" trigger={<><MoreHorizontal size={18} /><span>更多</span></>}>
             <button type="button" aria-label="打开项目" onClick={() => { setOpenPopover(null); projectInputRef.current?.click() }}><FolderOpen size={16} />打开项目</button>
+            <button type="button" aria-label="区域识别" onClick={() => { setOpenPopover(null); setSettingsPanel('recognition') }}><ScanLine size={16} />区域识别</button>
             <button type="button" aria-label="画面与画布设置" onClick={() => { setOpenPopover(null); setSettingsPanel('settings') }}><Settings2 size={16} />画面与画布设置</button>
             <button type="button" onClick={() => { setOpenPopover(null); setSettingsPanel('history') }}><HistoryIcon size={16} />历史记录</button>
           </WorkbenchPopover>
@@ -457,16 +458,6 @@ export default function App() {
               <button className={`tool-button hatch-shortcut ${tool === 'bucket' && activeMaterial.type === 'hatch' ? 'active' : ''}`} type="button" aria-label="45°剖面线" aria-pressed={tool === 'bucket' && activeMaterial.type === 'hatch'} onClick={() => chooseMaterial({ ...activeMaterial, type: 'hatch', name: '45°剖面线', angle: 0, transform: [1, 0, 0, 1, 0, 0], inkColor: '#333333' })}><span className="hatch-symbol" /><span>剖面线</span></button>
             </div>
             <FillColorPresets color={activeMaterial.color} onChange={chooseFillColor} open={openPopover === 'palette'} onOpenChange={open => setOpenPopover(open ? 'palette' : null)} />
-            <WorkbenchPopover label="区域识别" open={openPopover === 'recognition'} onToggle={() => setOpenPopover(value => value === 'recognition' ? null : 'recognition')} onClose={() => setOpenPopover(null)} triggerClass="shadow-options-trigger" panelClass="workbench-shadow" trigger={<><ScanLine size={15} /><span>区域识别</span></>}>
-              <strong>线稿间隙修复</strong>
-              <p className="canvas-help">线条断开时可提高修复强度；过强可能连接相邻线条。</p>
-              <div className="export-scale-options" role="group" aria-label="间隙修复强度">
-                {[[0, '关闭'], [1, '轻度'], [4, '较强']].map(([value, label]) => <button key={value} type="button" className={gapSize === value ? 'active' : ''} aria-pressed={gapSize === value} onClick={() => setGapSize(value)}>{label}<small>{value} px</small></button>)}
-              </div>
-              <label className="toggle-row compact"><span><strong>悬停预览</strong><small>填色前高亮围合区域</small></span><input type="checkbox" checked={hoverPreview} onChange={event => setHoverPreview(event.target.checked)} /></label>
-              <button className="full-button" type="button" disabled={busy || !source} onClick={() => { editorRef.current?.recognize(); setOpenPopover(null) }}>重新识别区域</button>
-              <p className="canvas-help">选择强度后点击重新识别；已有填色会保留，可撤销。</p>
-            </WorkbenchPopover>
             <div className="quick-shadow-controls">
               <label title="新填色自动使用长投影"><input type="checkbox" aria-label="填色自动加阴影" checked={autoShadow} onChange={event => setAutoShadow(event.target.checked)} /><span>自动阴影</span></label>
               <WorkbenchPopover label="阴影选项" open={openPopover === 'shadow'} onToggle={() => setOpenPopover(value => value === 'shadow' ? null : 'shadow')} onClose={() => setOpenPopover(null)} triggerClass="shadow-options-trigger" panelClass="workbench-shadow" trigger={<><SlidersHorizontal size={15} /><span>选项</span></>}>
@@ -568,7 +559,21 @@ export default function App() {
       </div>
 
 
-      {settingsPanel ? <div className="settings-backdrop" onClick={() => setSettingsPanel(null)}>
+      {settingsPanel === 'recognition' ? <div className="settings-backdrop" onClick={() => setSettingsPanel(null)}>
+        <section className="settings-dialog" role="dialog" aria-modal="true" aria-label="区域识别" onClick={event => event.stopPropagation()}>
+          <div className="panel-title"><div><strong>区域识别</strong><small>调整线稿的围合识别</small></div><button type="button" aria-label="关闭区域识别" onClick={() => setSettingsPanel(null)}><X size={18} /></button></div>
+          <div className="recognition-panel">
+            <strong>线稿间隙修复</strong>
+            <p className="canvas-help">线条断开时可提高修复强度；过强可能连接相邻线条。</p>
+            <div className="export-scale-options" role="group" aria-label="间隙修复强度">
+              {[[0, '关闭'], [1, '轻度'], [4, '较强']].map(([value, label]) => <button key={value} type="button" className={gapSize === value ? 'active' : ''} aria-pressed={gapSize === value} onClick={() => setGapSize(value)}>{label}<small>{value} px</small></button>)}
+            </div>
+            <label className="toggle-row compact"><span><strong>悬停预览</strong><small>填色前高亮围合区域</small></span><input type="checkbox" checked={hoverPreview} onChange={event => setHoverPreview(event.target.checked)} /></label>
+            <button className="full-button" type="button" disabled={busy || !source} onClick={() => { editorRef.current?.recognize(); setSettingsPanel(null) }}>重新识别区域</button>
+            <p className="canvas-help">选择强度后点击重新识别；已有填色会保留，可撤销。</p>
+          </div>
+        </section>
+      </div> : settingsPanel ? <div className="settings-backdrop" onClick={() => setSettingsPanel(null)}>
         <section className="settings-dialog" role="dialog" aria-modal="true" aria-label={settingsPanel === 'history' ? '历史记录面板' : '画面与画布设置面板'} onClick={event => event.stopPropagation()}>
           <div className="panel-title"><div><strong>{settingsPanel === 'history' ? '历史记录' : '画面与画布设置'}</strong><small>所有修改仍在当前作品中</small></div><button type="button" aria-label="关闭设置面板" onClick={() => setSettingsPanel(null)}><X size={18} /></button></div>
           {settingsPanel !== 'history' ? <div className="mobile-project-actions"><button className="button secondary" type="button" onClick={() => projectInputRef.current?.click()}><FolderOpen size={16} />打开项目</button><button className="button secondary" type="button" onClick={saveProject}><Save size={16} />保存项目</button></div> : null}
