@@ -433,7 +433,7 @@ export default function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-          <div className="brand" aria-label="平面图制作"><span>平</span><span>面图制作</span></div>
+          <div className="brand" aria-label="彩平图制作"><span>彩</span><span>平图制作</span></div>
         <div className="document-title"><FileText size={18} strokeWidth={1.7} /><span>{documentName}</span></div>
         <div className="top-actions">
           <button className="button secondary" aria-label="导入线稿" type="button" onClick={() => lineInputRef.current?.click()}><Upload size={17} />导入线稿</button>

@@ -9,7 +9,7 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
   await page.goto(process.env.APP_URL || 'http://127.0.0.1:5188/')
-  assert.match(await page.title(), /平面图制作/)
+  assert.match(await page.title(), /彩平图制作/)
   assert.equal(await page.locator('.material-inspector').isVisible(), false, 'inspector starts folded')
   assert.equal(await page.getByRole('group', { name: '快捷黑白灰' }).getByRole('button').count(), 7)
   assert.ok((await page.locator('.preview-pane').boundingBox()).width > 1300, 'canvas uses the released sidebar space')
