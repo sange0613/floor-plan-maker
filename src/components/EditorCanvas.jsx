@@ -4,7 +4,7 @@ import { createMaterialState, cloneMaterialState, paintRegion, editMaterial, del
 import { renderMaterialFill } from '../lib/materialPatterns'
 import { drawArtworkLayers } from '../lib/compositeLayers'
 import { rotatePlane } from '../lib/rotatePlane'
-import { drawRoutes, readRoutes, transformRoutes } from '../lib/routes'
+import { drawRoutes, hitRoute, readRoutes, transformRoutes } from '../lib/routes'
 
 const loadDataImage = (url) => new Promise((resolve, reject) => {
   const image = new Image()
@@ -43,11 +43,13 @@ const EditorCanvas = forwardRef(function EditorCanvas(
   {
     source, tool, fillColor, activeMaterial, onMaterialStateChange = () => {}, onSelectionChange = () => {}, busy, lineColor, lineOpacity, linePosition = 'top', sensitivity, gapSize, hoverPreview, background, backgroundOpacity,
     fillLayerOpacities, fillLayerVisibility, fillLayerShadows, zoom, cropRequest, onRegions, onLayersChange, onMessage,
-    onBusy, onCanvasSize, onCropApplied, onCropCancel, onHistoryChange, onRoutesChange,
+    onBusy, onCanvasSize, onCropApplied, onCropCancel, onHistoryChange, onRoutesChange, onRouteSelect,
   },
   ref,
 ) {
   const canvasRef = useRef(null)
+  const routeCanvasRef = useRef(null)
+  const routeDragRef = useRef(null)
   const hoverCanvasRef = useRef(null)
   const sourceRef = useRef(null)
   const cropStartRef = useRef(null)
@@ -135,6 +137,23 @@ const EditorCanvas = forwardRef(function EditorCanvas(
     if (interaction?.changed) recordHistory(interaction.label)
   }
 
+  const renderRoutes = (routes = engineRef.current.routes, highlighted = -1) => {
+    const canvas = routeCanvasRef.current
+    const engine = engineRef.current
+    if (canvas.width !== engine.width) canvas.width = engine.width
+    if (canvas.height !== engine.height) canvas.height = engine.height
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    if (engine.routesVisible !== false) drawRoutes(ctx, routes, highlighted)
+  }
+
+  useEffect(() => {
+    if (tool !== 'route-move' && routeDragRef.current) {
+      routeDragRef.current = null
+      renderRoutes()
+    }
+  }, [tool])
+
   const render = () => {
     const canvas = canvasRef.current
     const engine = engineRef.current
@@ -218,7 +237,7 @@ const EditorCanvas = forwardRef(function EditorCanvas(
     lineContext.clearRect(0, 0, canvas.width, canvas.height)
     lineContext.putImageData(lineImage, 0, 0)
     drawArtworkLayers(ctx, engine, linePosition)
-    if (engine.routesVisible !== false) drawRoutes(ctx, engine.routes)
+    renderRoutes()
   }
 
   const clearHover = () => {
@@ -579,8 +598,8 @@ const EditorCanvas = forwardRef(function EditorCanvas(
           naturalContext.restore()
         }
         drawArtworkLayers(naturalContext, engine, linePosition)
-        if (engine.routesVisible !== false) drawRoutes(naturalContext, engine.routes)
       }
+      if (engine.routesVisible !== false) drawRoutes(naturalContext, engine.routes)
       const output = document.createElement('canvas')
       output.width = engine.width * scale
       output.height = engine.height * scale
@@ -691,7 +710,7 @@ const EditorCanvas = forwardRef(function EditorCanvas(
   const handleCanvasClick = (event) => {
     endMaterialInteraction()
     if (busy || !engineRef.current.fill) { onMessage('正在处理线稿，请稍后再填色'); return }
-    if (tool === 'crop') return
+    if (tool === 'crop' || tool === 'route-move') return
     const canvas = canvasRef.current
     const rect = canvas.getBoundingClientRect()
     const x = Math.max(0, Math.min(canvas.width - 1, Math.floor((event.clientX - rect.left) * canvas.width / rect.width)))
@@ -804,6 +823,52 @@ const EditorCanvas = forwardRef(function EditorCanvas(
     event.currentTarget.releasePointerCapture?.(event.pointerId)
   }
 
+  const moveRoute = (event, drag) => {
+    const point = pointFromEvent(event)
+    const dx = point.x - drag.start.x
+    const dy = point.y - drag.start.y
+    if (!dx && !dy) return drag.routes
+    const [route] = transformRoutes([drag.routes[drag.index]], ([x, y]) => [x + dx, y + dy])
+    return drag.routes.map((item, index) => index === drag.index ? route : item)
+  }
+
+  const handlePointerDown = event => {
+    if (tool !== 'route-move') return handleCropPointerDown(event)
+    const engine = engineRef.current
+    if (busy || event.button !== 0 || routeDragRef.current || engine.routesVisible === false || !engine.routes?.length) return
+    const start = pointFromEvent(event)
+    const scale = engine.width / event.currentTarget.getBoundingClientRect().width
+    const index = hitRoute(routeCanvasRef.current.getContext('2d'), engine.routes, start.x, start.y, 10 * scale)
+    if (index < 0) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    routeDragRef.current = { pointerId: event.pointerId, routes: engine.routes, index, start }
+    onRouteSelect(index)
+    renderRoutes(engine.routes, index)
+  }
+
+  const handlePointerMove = event => {
+    if (tool !== 'route-move') return handleCropPointerMove(event)
+    const drag = routeDragRef.current
+    if (drag?.pointerId === event.pointerId && drag.routes === engineRef.current.routes) {
+      renderRoutes(moveRoute(event, drag), drag.index)
+    }
+  }
+
+  const finishRouteDrag = (event, commit = false) => {
+    const drag = routeDragRef.current
+    if (drag?.pointerId !== event.pointerId) return
+    routeDragRef.current = null
+    const engine = engineRef.current
+    if (commit && tool === 'route-move' && !busy && engine.routes === drag.routes) {
+      const routes = moveRoute(event, drag)
+      if (routes !== drag.routes) {
+        engine.routes = routes
+        recordHistory('移动动线')
+      }
+    }
+    renderRoutes()
+  }
+
   const applyCrop = () => {
     endMaterialInteraction()
     if (!cropSelection || cropSelection.width < 12 || cropSelection.height < 12) {
@@ -876,14 +941,16 @@ const EditorCanvas = forwardRef(function EditorCanvas(
       <canvas
         ref={canvasRef}
         onClick={handleCanvasClick}
-        onPointerDown={handleCropPointerDown}
-        onPointerMove={handleCropPointerMove}
-        onPointerUp={handleCropPointerUp}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={event => { finishRouteDrag(event, true); handleCropPointerUp(event) }}
+        onLostPointerCapture={finishRouteDrag}
         onPointerLeave={() => clearHover()}
         className={`art-canvas tool-${tool}`}
         aria-label="线稿填色画布"
       />
       <canvas ref={hoverCanvasRef} className="fill-hover-overlay" aria-hidden="true" />
+      <canvas ref={routeCanvasRef} className="fill-hover-overlay" aria-hidden="true" />
       {tool === 'route' && routeStart && <i className="route-start" aria-hidden="true" style={{ left: `${routeStart[0] / engineRef.current.width * 100}%`, top: `${routeStart[1] / engineRef.current.height * 100}%` }} />}
       {tool === 'crop' && cropSelection ? (
         <div

@@ -68,6 +68,8 @@ export default function App() {
   const [source, setSource] = useState(null)
   const [documentName, setDocumentName] = useState('花卉线稿_01.png')
   const [tool, setTool] = useState('bucket')
+  const movingRoute = tool === 'route-move'
+  const routeToolActive = tool === 'route' || movingRoute
   const [routeLayer, setRouteLayer] = useState({ routes: [], visible: true })
   const [routeIndex, setRouteIndex] = useState(-1)
   const selectedRouteIndex = routeLayer.routes[routeIndex] ? routeIndex : routeLayer.routes.length - 1
@@ -174,7 +176,7 @@ export default function App() {
   }
   useEffect(() => {
     const close = event => {
-      if (event.key === 'Escape' && !event.defaultPrevented) { setSettingsPanel(null); setInspectorOpen(false); setOpenPopover(null); setTool(current => current === 'route' ? 'bucket' : current) }
+      if (event.key === 'Escape' && !event.defaultPrevented) { setSettingsPanel(null); setInspectorOpen(false); setOpenPopover(null); setTool(current => current === 'route' || current === 'route-move' ? 'bucket' : current) }
     }
     window.addEventListener('keydown', close)
     return () => window.removeEventListener('keydown', close)
@@ -473,7 +475,7 @@ export default function App() {
             <div className="fill-mode-buttons" role="group" aria-label="填充方式">
               <button className={`tool-button ${tool === 'bucket' && activeMaterial.type === 'solid' ? 'active' : ''}`} type="button" aria-label="纯色填充" aria-pressed={tool === 'bucket' && activeMaterial.type === 'solid'} onClick={() => chooseMaterial({ ...activeMaterial, type: 'solid', name: '纯色' })}><PaintBucket size={21} strokeWidth={1.7} /><span>纯色</span></button>
               <button className={`tool-button hatch-shortcut ${tool === 'bucket' && activeMaterial.type === 'hatch' ? 'active' : ''}`} type="button" aria-label="45°剖面线" aria-pressed={tool === 'bucket' && activeMaterial.type === 'hatch'} onClick={() => chooseMaterial({ ...activeMaterial, type: 'hatch', name: '45°剖面线', angle: 0, transform: [1, 0, 0, 1, 0, 0], inkColor: '#333333' })}><span className="hatch-symbol" /><span>剖面线</span></button>
-              <button className={`tool-button ${tool === 'route' ? 'active' : ''}`} type="button" aria-label="绘制动线" aria-pressed={tool === 'route'} disabled={busy || !source} onClick={() => { setTool(tool === 'route' ? 'bucket' : 'route'); setCropRequest(null); setOpenPopover(null) }}><span aria-hidden="true">╌╌➜</span><span>动线</span></button>
+              <button className={`tool-button ${routeToolActive ? 'active' : ''}`} type="button" aria-label="绘制动线" aria-pressed={routeToolActive} disabled={busy || !source} onClick={() => { setTool(routeToolActive ? 'bucket' : 'route'); setCropRequest(null); setOpenPopover(null) }}><span aria-hidden="true">╌╌➜</span><span>动线</span></button>
             </div>
             <FillColorPresets color={activeMaterial.color} onChange={chooseFillColor} open={openPopover === 'palette'} onOpenChange={open => setOpenPopover(open ? 'palette' : null)} />
             <div className="quick-shadow-controls">
@@ -515,9 +517,10 @@ export default function App() {
               <button className={`canvas-fit-control ${inspectorOpen ? 'active' : ''}`} type="button" aria-label="属性与图层" title="属性与图层" aria-expanded={inspectorOpen} aria-controls="material-inspector" onClick={() => { setOpenPopover(null); setInspectorOpen(value => !value) }}><Layers size={16} /><span>属性 / 图层</span></button>
             </div>
           </div>
-          {tool === 'route' && <div className="route-controls" role="group" aria-label="动线图层">
+          {routeToolActive && <div className="route-controls" role="group" aria-label="动线图层">
             <strong>动线图层</strong>
-            <span>依次点击起点、终点</span>
+            <span>{movingRoute ? '拖动要移动的动线' : '依次点击起点、终点'}</span>
+            {routeLayer.routes.length > 0 && <button type="button" aria-pressed={movingRoute} disabled={!routeLayer.visible && !movingRoute} onClick={() => setTool(movingRoute ? 'route' : 'route-move')}>{movingRoute ? '返回绘制' : '移动动线'}</button>}
             {selectedRoute && <>
               <select aria-label="选择动线" value={selectedRouteIndex} onChange={event => setRouteIndex(Number(event.target.value))}>
                 {routeLayer.routes.map((_, index) => <option key={index} value={index}>动线 {index + 1}</option>)}
@@ -536,6 +539,7 @@ export default function App() {
               ref={editorRef}
               source={source}
               tool={tool}
+              onRouteSelect={setRouteIndex}
               onRoutesChange={(routes, visible) => {
                 if (routes.length !== routeLayer.routes.length) setRouteIndex(-1)
                 setRouteLayer({ routes, visible })

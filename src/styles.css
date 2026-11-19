@@ -503,6 +503,8 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .shadow-control .slider::-moz-range-track { height: 4px; border-radius: 2px; background: #d6d6d6; }
 .shadow-control .slider::-moz-range-thumb { width: 16px; height: 16px; border: 1.5px solid #242424; border-radius: 50%; background: #fff; }
 .tool-route { cursor: crosshair; }
+.tool-route-move { cursor: grab; touch-action: none; }
+.tool-route-move:active { cursor: grabbing; }
 .route-start { position: absolute; width: 10px; height: 10px; border: 2px solid white; border-radius: 50%; background: #222; box-shadow: 0 0 0 1px #222; transform: translate(-50%, -50%); pointer-events: none; }
 .route-controls { position: absolute; z-index: 7; left: 12px; right: 12px; top: 54px; width: fit-content; max-width: calc(100% - 24px); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; background: white; border: 1px solid var(--border); border-radius: 8px; font-size: 11px; }
 .route-controls span { color: var(--muted); }
