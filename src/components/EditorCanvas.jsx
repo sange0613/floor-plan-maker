@@ -43,7 +43,7 @@ const EditorCanvas = forwardRef(function EditorCanvas(
   {
     source, tool, fillColor, activeMaterial, onMaterialStateChange = () => {}, onSelectionChange = () => {}, busy, lineColor, lineOpacity, linePosition = 'top', sensitivity, gapSize, hoverPreview, background, backgroundOpacity,
     fillLayerOpacities, fillLayerVisibility, fillLayerShadows, zoom, cropRequest, onRegions, onLayersChange, onMessage,
-    onBusy, onCanvasSize, onCropApplied, onCropCancel, onHistoryChange, onRoutesChange, onRouteSelect,
+    onBusy, onCanvasSize, onCropApplied, onCropCancel, onHistoryChange, onRoutesChange, onRouteSelect, snapRoute,
   },
   ref,
 ) {
@@ -721,9 +721,18 @@ const EditorCanvas = forwardRef(function EditorCanvas(
       if (!routeStart) {
         setRouteStart([x, y])
         onMessage('点击终点，箭头将指向终点')
-      } else if (Math.hypot(x - routeStart[0], y - routeStart[1]) >= 2) {
+      } else {
+        const [startX, startY] = routeStart
+        const dx = x - startX
+        const dy = y - startY
+        const end = [x, y]
+        if (snapRoute) {
+          if (Math.abs(dx) >= Math.abs(dy)) end[1] = startY
+          else end[0] = startX
+        }
+        if (Math.hypot(end[0] - startX, end[1] - startY) < 2) return
         const width = Math.min(50, Math.max(2, engine.width / 250))
-        engine.routes = [...(engine.routes || []), { start: routeStart, end: [x, y], bend: 0, width }]
+        engine.routes = [...(engine.routes || []), { start: routeStart, end, bend: 0, width }]
         engine.routesVisible = true
         setRouteStart(null)
         render()

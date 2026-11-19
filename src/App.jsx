@@ -72,6 +72,7 @@ export default function App() {
   const routeToolActive = tool === 'route' || movingRoute
   const [routeLayer, setRouteLayer] = useState({ routes: [], visible: true })
   const [routeIndex, setRouteIndex] = useState(-1)
+  const [snapRoute, setSnapRoute] = useState(false)
   const selectedRouteIndex = routeLayer.routes[routeIndex] ? routeIndex : routeLayer.routes.length - 1
   const selectedRoute = routeLayer.routes[selectedRouteIndex]
   const [activeMaterial, setActiveMaterial] = useState(() => normalizeMaterial({ color: '#888888' }))
@@ -520,6 +521,7 @@ export default function App() {
           {routeToolActive && <div className="route-controls" role="group" aria-label="动线图层">
             <strong>动线图层</strong>
             <span>{movingRoute ? '拖动要移动的动线' : '依次点击起点、终点'}</span>
+            {!movingRoute && <button type="button" aria-pressed={snapRoute} onClick={() => setSnapRoute(current => !current)}>横平竖直</button>}
             {routeLayer.routes.length > 0 && <button type="button" aria-pressed={movingRoute} disabled={!routeLayer.visible && !movingRoute} onClick={() => setTool(movingRoute ? 'route' : 'route-move')}>{movingRoute ? '返回绘制' : '移动动线'}</button>}
             {selectedRoute && <>
               <select aria-label="选择动线" value={selectedRouteIndex} onChange={event => setRouteIndex(Number(event.target.value))}>
@@ -540,6 +542,7 @@ export default function App() {
               source={source}
               tool={tool}
               onRouteSelect={setRouteIndex}
+              snapRoute={snapRoute}
               onRoutesChange={(routes, visible) => {
                 if (routes.length !== routeLayer.routes.length) setRouteIndex(-1)
                 setRouteLayer({ routes, visible })
