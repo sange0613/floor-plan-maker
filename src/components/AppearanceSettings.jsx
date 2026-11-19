@@ -11,20 +11,20 @@ const BACKGROUND_PRESETS = [
 ]
 
 export default function AppearanceSettings({
-  background, backgroundName, backgroundOpacity, lineColor, lineOpacity,
+  background, backgroundName, backgroundOpacity, lineColor, lineOpacity, compact = false,
   onBackgroundImport, onBackgroundPreset, onBackgroundOpacityChange, onClearBackground, onLineColorChange, onLineOpacityChange,
 }) {
   const backgroundInputRef = useRef(null)
 
   return (
-    <div className="appearance-grid">
+    <div className={compact ? 'appearance-grid appearance-compact' : 'appearance-grid'}>
       <div className="appearance-card">
         <div className="appearance-card-title"><ImagePlus size={15} /><strong>背景图片</strong></div>
         <input ref={backgroundInputRef} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={onBackgroundImport} />
         <button className="appearance-upload" type="button" onClick={() => backgroundInputRef.current?.click()}>
           <ImagePlus size={19} />
           <span>{backgroundName || '上传背景'}</span>
-          <small>JPG · PNG · WebP</small>
+          {!compact && <small>JPG · PNG · WebP</small>}
         </button>
         <div className="appearance-mini-label"><span>透明度</span><output>{background ? `${backgroundOpacity}%` : '—'}</output></div>
         <input className="slider" type="range" min="0" max="100" value={backgroundOpacity} disabled={!background} aria-label="背景透明度" onChange={(event) => onBackgroundOpacityChange(Number(event.target.value))} />
@@ -39,11 +39,11 @@ export default function AppearanceSettings({
         </label>
         <div className="appearance-mini-label"><span>透明度</span><output>{lineOpacity}%</output></div>
         <input className="slider" type="range" min="10" max="100" value={lineOpacity} aria-label="线稿透明度" onChange={(event) => onLineOpacityChange(Number(event.target.value))} />
-        <p className="appearance-note">调整线条色彩，不影响区域识别。</p>
+        {!compact && <p className="appearance-note">调整线条色彩，不影响区域识别。</p>}
       </div>
 
       <div className="background-presets">
-        <div className="background-presets-heading"><strong>背景预设</strong><span>点击即可更换</span></div>
+        <div className="background-presets-heading"><strong>背景预设</strong>{!compact && <span>点击即可更换</span>}</div>
         <div className="background-preset-grid">
           {BACKGROUND_PRESETS.map((preset) => {
             const active = backgroundName === preset.name
@@ -53,6 +53,7 @@ export default function AppearanceSettings({
                 key={preset.id}
                 className={active ? 'active' : ''}
                 aria-label={`使用${preset.name}背景`}
+                title={preset.name}
                 aria-pressed={active}
                 onClick={() => onBackgroundPreset(preset)}
               >

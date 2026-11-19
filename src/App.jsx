@@ -83,7 +83,7 @@ export default function App() {
   const [scope, setScope] = useState('region')
   const [inspectorTab, setInspectorTab] = useState('properties')
   const [settingsPanel, setSettingsPanel] = useState(null)
-  const [inspectorOpen, setInspectorOpen] = useState(false)
+  const [inspectorOpen, setInspectorOpen] = useState(() => window.matchMedia('(min-width: 761px)').matches)
   const [lineColor, setLineColor] = useState('#1A1A1A')
   const [lineOpacity, setLineOpacity] = useState(100)
   const [linePosition, setLinePosition] = useState('top')
@@ -447,6 +447,16 @@ export default function App() {
     setMessage(`已恢复：${entry?.label || '历史状态'}`)
   }
 
+  const appearanceProps = {
+    background, backgroundName, backgroundOpacity, lineColor, lineOpacity,
+    onBackgroundImport: importBackground,
+    onBackgroundPreset: applyBackgroundPreset,
+    onBackgroundOpacityChange: setBackgroundOpacity,
+    onClearBackground: () => { setBackground(null); setBackgroundName(''); setMessage('背景已清除') },
+    onLineColorChange: setLineColor,
+    onLineOpacityChange: setLineOpacity,
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -585,8 +595,10 @@ export default function App() {
             <button className="workbench-panel-close" type="button" aria-label="收起属性面板" onClick={() => setInspectorOpen(false)}><X size={16} /></button>
           </div>
           <div className="inspector-body">
+          {inspectorTab === 'properties' && <AppearanceSettings {...appearanceProps} compact />}
           <MaterialInteraction onStart={mode => editorRef.current?.beginMaterialInteraction(mode)} onEnd={() => editorRef.current?.endMaterialInteraction()}>
           {inspectorTab === 'properties' ? <>
+            <h2 className="sidebar-fill-title">填充颜色</h2>
             <MaterialProperties material={shownMaterial} selection={selectedMaterial ? selection : null} scope={scope} onScopeChange={setScope} onChange={editSelectedMaterial}
               onRemoveTexture={() => editSelectedMaterial({ type: 'solid', name: '纯色' })}
               onUse={() => chooseMaterial({ ...shownMaterial, visible: true, opacity: 100 })}
@@ -622,19 +634,7 @@ export default function App() {
           {settingsPanel !== 'history' ? <div className="mobile-project-actions"><button className="button secondary" type="button" onClick={() => projectInputRef.current?.click()}><FolderOpen size={16} />打开项目</button><button className="button secondary" type="button" onClick={saveProject}><Save size={16} />保存项目</button></div> : null}
           <div className={`settings-content ${settingsPanel === 'history' ? 'history-only' : ''}`}>
           <InspectorSection title="画面设置">
-            <AppearanceSettings
-              background={background}
-              backgroundName={backgroundName}
-              backgroundOpacity={backgroundOpacity}
-              lineColor={lineColor}
-              lineOpacity={lineOpacity}
-              onBackgroundImport={importBackground}
-              onBackgroundPreset={applyBackgroundPreset}
-              onBackgroundOpacityChange={setBackgroundOpacity}
-              onClearBackground={() => { setBackground(null); setBackgroundName(''); setMessage('背景已清除') }}
-              onLineColorChange={setLineColor}
-              onLineOpacityChange={setLineOpacity}
-            />
+            <AppearanceSettings {...appearanceProps} />
           </InspectorSection>
           <InspectorSection title="画布设置">
             <div className="canvas-size-row">
