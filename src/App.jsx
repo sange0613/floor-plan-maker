@@ -68,6 +68,10 @@ export default function App() {
   const [source, setSource] = useState(null)
   const [documentName, setDocumentName] = useState('花卉线稿_01.png')
   const [tool, setTool] = useState('bucket')
+  const [routeLayer, setRouteLayer] = useState({ routes: [], visible: true })
+  const [routeIndex, setRouteIndex] = useState(-1)
+  const selectedRouteIndex = routeLayer.routes[routeIndex] ? routeIndex : routeLayer.routes.length - 1
+  const selectedRoute = routeLayer.routes[selectedRouteIndex]
   const [activeMaterial, setActiveMaterial] = useState(() => normalizeMaterial({ color: '#888888' }))
   const [autoShadow, setAutoShadow] = useState(true)
   const [shadowScope, setShadowScope] = useState('color')
@@ -170,7 +174,7 @@ export default function App() {
   }
   useEffect(() => {
     const close = event => {
-      if (event.key === 'Escape' && !event.defaultPrevented) { setSettingsPanel(null); setInspectorOpen(false); setOpenPopover(null) }
+      if (event.key === 'Escape' && !event.defaultPrevented) { setSettingsPanel(null); setInspectorOpen(false); setOpenPopover(null); setTool(current => current === 'route' ? 'bucket' : current) }
     }
     window.addEventListener('keydown', close)
     return () => window.removeEventListener('keydown', close)
@@ -469,6 +473,7 @@ export default function App() {
             <div className="fill-mode-buttons" role="group" aria-label="填充方式">
               <button className={`tool-button ${tool === 'bucket' && activeMaterial.type === 'solid' ? 'active' : ''}`} type="button" aria-label="纯色填充" aria-pressed={tool === 'bucket' && activeMaterial.type === 'solid'} onClick={() => chooseMaterial({ ...activeMaterial, type: 'solid', name: '纯色' })}><PaintBucket size={21} strokeWidth={1.7} /><span>纯色</span></button>
               <button className={`tool-button hatch-shortcut ${tool === 'bucket' && activeMaterial.type === 'hatch' ? 'active' : ''}`} type="button" aria-label="45°剖面线" aria-pressed={tool === 'bucket' && activeMaterial.type === 'hatch'} onClick={() => chooseMaterial({ ...activeMaterial, type: 'hatch', name: '45°剖面线', angle: 0, transform: [1, 0, 0, 1, 0, 0], inkColor: '#333333' })}><span className="hatch-symbol" /><span>剖面线</span></button>
+              <button className={`tool-button ${tool === 'route' ? 'active' : ''}`} type="button" aria-label="绘制动线" aria-pressed={tool === 'route'} disabled={busy || !source} onClick={() => { setTool(tool === 'route' ? 'bucket' : 'route'); setCropRequest(null); setOpenPopover(null) }}><span aria-hidden="true">╌╌➜</span><span>动线</span></button>
             </div>
             <FillColorPresets color={activeMaterial.color} onChange={chooseFillColor} open={openPopover === 'palette'} onOpenChange={open => setOpenPopover(open ? 'palette' : null)} />
             <div className="quick-shadow-controls">
@@ -510,6 +515,20 @@ export default function App() {
               <button className={`canvas-fit-control ${inspectorOpen ? 'active' : ''}`} type="button" aria-label="属性与图层" title="属性与图层" aria-expanded={inspectorOpen} aria-controls="material-inspector" onClick={() => { setOpenPopover(null); setInspectorOpen(value => !value) }}><Layers size={16} /><span>属性 / 图层</span></button>
             </div>
           </div>
+          {tool === 'route' && <div className="route-controls" role="group" aria-label="动线图层">
+            <strong>动线图层</strong>
+            <span>依次点击起点、终点</span>
+            {selectedRoute && <>
+              <select aria-label="选择动线" value={selectedRouteIndex} onChange={event => setRouteIndex(Number(event.target.value))}>
+                {routeLayer.routes.map((_, index) => <option key={index} value={index}>动线 {index + 1}</option>)}
+              </select>
+              <button type="button" onClick={() => editorRef.current?.editRoute(selectedRouteIndex, 0)} aria-pressed={selectedRoute.bend === 0}>直线</button>
+              <button type="button" onClick={() => editorRef.current?.editRoute(selectedRouteIndex, 0.55)} aria-pressed={selectedRoute.bend !== 0}>弧线</button>
+              <button type="button" disabled={selectedRoute.bend === 0} onClick={() => editorRef.current?.editRoute(selectedRouteIndex, -selectedRoute.bend)}>反转弧向</button>
+              <button type="button" onClick={() => editorRef.current?.toggleRoutes()}>{routeLayer.visible ? '隐藏图层' : '显示图层'}</button>
+              <button type="button" aria-label="删除当前动线" onClick={() => editorRef.current?.editRoute(selectedRouteIndex, null)}><Trash2 size={14} /></button>
+            </>}
+          </div>}
           <div className="workspace" ref={workspaceRef}>
             {message ? <div className={`toast ${busy ? 'busy' : ''}`} role="status"><ScanLine size={17} />{message}</div> : null}
             {source ? (
@@ -517,6 +536,10 @@ export default function App() {
               ref={editorRef}
               source={source}
               tool={tool}
+              onRoutesChange={(routes, visible) => {
+                if (routes.length !== routeLayer.routes.length) setRouteIndex(-1)
+                setRouteLayer({ routes, visible })
+              }}
               fillColor={activeMaterial.color}
               activeMaterial={fillMaterial}
               onSelectionChange={(next) => { if (next?.seed !== selection?.seed) setScope(next?.seed == null ? 'material' : 'region'); setSelection(next) }}

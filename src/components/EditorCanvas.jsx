@@ -4,6 +4,7 @@ import { createMaterialState, cloneMaterialState, paintRegion, editMaterial, del
 import { renderMaterialFill } from '../lib/materialPatterns'
 import { drawArtworkLayers } from '../lib/compositeLayers'
 import { rotatePlane } from '../lib/rotatePlane'
+import { drawRoutes, readRoutes, transformRoutes } from '../lib/routes'
 
 const loadDataImage = (url) => new Promise((resolve, reject) => {
   const image = new Image()
@@ -42,7 +43,7 @@ const EditorCanvas = forwardRef(function EditorCanvas(
   {
     source, tool, fillColor, activeMaterial, onMaterialStateChange = () => {}, onSelectionChange = () => {}, busy, lineColor, lineOpacity, linePosition = 'top', sensitivity, gapSize, hoverPreview, background, backgroundOpacity,
     fillLayerOpacities, fillLayerVisibility, fillLayerShadows, zoom, cropRequest, onRegions, onLayersChange, onMessage,
-    onBusy, onCanvasSize, onCropApplied, onCropCancel, onHistoryChange,
+    onBusy, onCanvasSize, onCropApplied, onCropCancel, onHistoryChange, onRoutesChange,
   },
   ref,
 ) {
@@ -56,6 +57,8 @@ const EditorCanvas = forwardRef(function EditorCanvas(
   const interactionRef = useRef(null)
   const timelineRef = useRef({ entries: [], index: -1, sequence: 0 })
   const [cropSelection, setCropSelection] = useState(null)
+  const [routeStart, setRouteStart] = useState(null)
+  useEffect(() => { setRouteStart(null) }, [tool, source])
   const engineRef = useRef({
     mask: null, lineAlpha: null, fill: null, displayFill: null, width: 0, height: 0,
     history: [], fillCanvas: null, lineCanvas: null, hoverCanvas: null, hoverBounds: null,
@@ -89,6 +92,7 @@ const EditorCanvas = forwardRef(function EditorCanvas(
   const emitHistory = () => {
     const timeline = timelineRef.current
     onHistoryChange(timeline.entries.map(({ id, label, time }) => ({ id, label, time })), timeline.entries[timeline.index]?.id)
+    onRoutesChange(engineRef.current.routes || [], engineRef.current.routesVisible !== false)
   }
 
   const recordHistory = (label, reset = false) => {
@@ -115,6 +119,8 @@ const EditorCanvas = forwardRef(function EditorCanvas(
       layerCounts: new Map(engine.layerCounts),
       layerOrder: [...engine.layerOrder],
       regions: engine.regions,
+      routes: engine.routes,
+      routesVisible: engine.routesVisible,
     })
     // One initial state plus 100 undoable edits.
     const maxEntries = 101
@@ -212,6 +218,7 @@ const EditorCanvas = forwardRef(function EditorCanvas(
     lineContext.clearRect(0, 0, canvas.width, canvas.height)
     lineContext.putImageData(lineImage, 0, 0)
     drawArtworkLayers(ctx, engine, linePosition)
+    if (engine.routesVisible !== false) drawRoutes(ctx, engine.routes)
   }
 
   const clearHover = () => {
@@ -298,6 +305,8 @@ const EditorCanvas = forwardRef(function EditorCanvas(
         materialState: !resetTimeline && previous.materialState && previous.width === line.width && previous.height === line.height
           ? previous.materialState : createMaterialState(line.width * line.height),
         layerCounts: new Map(), layerOrder: [],
+        routes: resetTimeline ? [] : previous.routes,
+        routesVisible: resetTimeline || previous.routesVisible !== false,
       }
       selectRegion(null)
       canvasRef.current.width = line.width
@@ -376,6 +385,7 @@ const EditorCanvas = forwardRef(function EditorCanvas(
     const timeline = timelineRef.current
     const snapshot = timeline.entries[index]
     if (!snapshot) return false
+    setRouteStart(null)
     clearHover()
     const fillCanvas = document.createElement('canvas')
     const lineCanvas = document.createElement('canvas')
@@ -399,6 +409,8 @@ const EditorCanvas = forwardRef(function EditorCanvas(
       layerCounts: new Map(snapshot.layerCounts),
       layerOrder: [...snapshot.layerOrder],
       regions: snapshot.regions,
+      routes: snapshot.routes,
+      routesVisible: snapshot.routesVisible,
     }
     canvasRef.current.width = snapshot.width
     canvasRef.current.height = snapshot.height
@@ -413,6 +425,21 @@ const EditorCanvas = forwardRef(function EditorCanvas(
   }
 
   useImperativeHandle(ref, () => ({
+    editRoute(index, bend) {
+      const engine = engineRef.current
+      if (busy || !engine.routes?.[index] || engine.routes[index].bend === bend) return
+      engine.routes = bend == null ? engine.routes.filter((_, i) => i !== index)
+        : engine.routes.map((route, i) => i === index ? { ...route, bend } : route)
+      render()
+      recordHistory(bend == null ? '删除动线' : '调整动线')
+    },
+    toggleRoutes() {
+      const engine = engineRef.current
+      if (busy || !engine.routes?.length) return
+      engine.routesVisible = engine.routesVisible === false
+      render()
+      recordHistory(engine.routesVisible ? '显示动线' : '隐藏动线')
+    },
     recognize: rebuild,
     beginMaterialInteraction(mode = 'manual') { if (!interactionRef.current) interactionRef.current = { changed: false, mode } },
     endMaterialInteraction,
@@ -492,6 +519,7 @@ const EditorCanvas = forwardRef(function EditorCanvas(
       sourceRef.current = rotatedSource
       engineRef.current = {
         ...engine, width, height, materialState, mask: rotate(engine.mask), lineAlpha: rotate(engine.lineAlpha),
+        routes: transformRoutes(engine.routes, ([x, y]) => clockwise ? [engine.height - y, x] : [y, engine.width - x]),
         fill: new ImageData(rotate(engine.fill.data, 4), width, height), displayFill: new ImageData(width, height),
         fillCanvas, lineCanvas, hoverCanvas, hoverBounds: null, history: [],
       }
@@ -551,6 +579,7 @@ const EditorCanvas = forwardRef(function EditorCanvas(
           naturalContext.restore()
         }
         drawArtworkLayers(naturalContext, engine, linePosition)
+        if (engine.routesVisible !== false) drawRoutes(naturalContext, engine.routes)
       }
       const output = document.createElement('canvas')
       output.width = engine.width * scale
@@ -577,6 +606,8 @@ const EditorCanvas = forwardRef(function EditorCanvas(
         fill: rawFillCanvas.toDataURL('image/png'),
         layerCounts: Array.from(engine.layerCounts.entries()),
         layerOrder: [...engine.layerOrder],
+        routes: engine.routes || [],
+        routesVisible: engine.routesVisible !== false,
         materialState: { materials: structuredClone(engine.materialState.materials), nextId: engine.materialState.nextId, assignments: encodeAssignments(engine.materialState.assignments) },
       }
     },
@@ -621,6 +652,8 @@ const EditorCanvas = forwardRef(function EditorCanvas(
       sourceRef.current = sourceCanvas
       engineRef.current = {
         ...line,
+        routes: readRoutes(project.routes),
+        routesVisible: project.routesVisible !== false,
         materialState,
         fill,
         displayFill: new ImageData(project.width, project.height),
@@ -665,6 +698,20 @@ const EditorCanvas = forwardRef(function EditorCanvas(
     const y = Math.max(0, Math.min(canvas.height - 1, Math.floor((event.clientY - rect.top) * canvas.height / rect.height)))
     const engine = engineRef.current
     clearHover()
+    if (tool === 'route') {
+      if (!routeStart) {
+        setRouteStart([x, y])
+        onMessage('点击终点，箭头将指向终点')
+      } else if (Math.hypot(x - routeStart[0], y - routeStart[1]) >= 2) {
+        const width = Math.min(50, Math.max(2, engine.width / 250))
+        engine.routes = [...(engine.routes || []), { start: routeStart, end: [x, y], bend: 0, width }]
+        engine.routesVisible = true
+        setRouteStart(null)
+        render()
+        recordHistory('绘制动线')
+      }
+      return
+    }
     if (tool === 'select') {
       const region = findClosedRegion({ x, y, ...engine })
       if (region.status === 'closed') { selectRegion(y * engine.width + x); paintHover(region.pixels); onMessage('已选中区域 · 在右侧调整材质') }
@@ -801,6 +848,7 @@ const EditorCanvas = forwardRef(function EditorCanvas(
 
     engineRef.current = {
       ...engine, materialState, mask, lineAlpha, fill, displayFill, width, height, fillCanvas, lineCanvas, hoverCanvas, hoverBounds: null, history: [],
+      routes: transformRoutes(engine.routes, ([px, py]) => [px - x, py - y]),
     }
     canvasRef.current.width = width
     canvasRef.current.height = height
@@ -836,6 +884,7 @@ const EditorCanvas = forwardRef(function EditorCanvas(
         aria-label="线稿填色画布"
       />
       <canvas ref={hoverCanvasRef} className="fill-hover-overlay" aria-hidden="true" />
+      {tool === 'route' && routeStart && <i className="route-start" aria-hidden="true" style={{ left: `${routeStart[0] / engineRef.current.width * 100}%`, top: `${routeStart[1] / engineRef.current.height * 100}%` }} />}
       {tool === 'crop' && cropSelection ? (
         <div
           className="crop-selection"
